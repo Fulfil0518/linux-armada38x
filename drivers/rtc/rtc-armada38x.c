@@ -26,6 +26,7 @@
 #define RTC_IRQ_FREQ_1HZ		BIT(2)
 #define RTC_TIME			0xC
 #define RTC_ALARM1			0x10
+#define RTC_TEST_CONFIGURATION 0x1C
 
 /* armada38x Interrupt registers  */
 #define RTC_38X_STATUS			0x0
@@ -252,20 +253,6 @@ static const struct of_device_id armada38x_rtc_of_match_table[] = {
 MODULE_DEVICE_TABLE(of, armada38x_rtc_of_match_table);
 #endif
 
-static int armada38x_rtc_read_time(struct device *dev, struct rtc_time *tm)
-{
-	struct armada38x_rtc *rtc = dev_get_drvdata(dev);
-	unsigned long time, flags;
-
-	spin_lock_irqsave(&rtc->lock, flags);
-	time = rtc->data->read_rtc_reg(rtc, RTC_TIME);
-	spin_unlock_irqrestore(&rtc->lock, flags);
-
-	rtc_time_to_tm(time, tm);
-
-	return 0;
-}
-
 static int armada38x_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct armada38x_rtc *rtc = dev_get_drvdata(dev);
@@ -283,6 +270,36 @@ static int armada38x_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 out:
 	return ret;
+}
+
+
+static int armada38x_rtc_read_time(struct device *dev, struct rtc_time *tm)
+{
+   struct armada38x_rtc *rtc = dev_get_drvdata(dev);
+   unsigned long time, flags;
+
+   spin_lock_irqsave(&rtc->lock, flags);
+   time = rtc->data->read_rtc_reg(rtc, RTC_TIME);
+   spin_unlock_irqrestore(&rtc->lock, flags);
+
+   rtc_time_to_tm(time, tm);
+
+   if (tm->tm_year < 70 || tm->tm_year > 137 ||
+      tm->tm_mon < 0 || tm->tm_mon > 11 ||
+      tm->tm_mday < 1 || tm->tm_mday > 31) {
+
+      printk("Armada 38x RTC is wonky..fixing\n");
+
+      time = 1509614107;
+
+      spin_lock_irqsave(&rtc->lock, flags);
+      rtc_delayed_write(0, rtc, RTC_TEST_CONFIGURATION);
+      rtc_delayed_write(time, rtc, RTC_TIME);
+      spin_unlock_irqrestore(&rtc->lock, flags);
+
+      rtc_time_to_tm(time, tm);
+   }
+	return 0;
 }
 
 static int armada38x_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
