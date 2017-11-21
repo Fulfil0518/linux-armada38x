@@ -4,6 +4,13 @@
 
 comment "MMC/SD/SDIO Host Controller Drivers"
 
+config TS_SDCARD
+        tristate "SD Card support for Technologic Systems ARM platform"
+        depends on MACH_ARMADA_38X
+        help
+          SD Card support for Technologic Systems SD Card core
+          on TS-78XX platform.
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
