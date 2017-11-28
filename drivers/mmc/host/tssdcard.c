@@ -142,7 +142,7 @@ static void tssdcard_transfer(struct tssdcard_dev *dev, unsigned long sector,
 static void tssdcard_delay(void *arg, unsigned int us)
 {
   while(us > 1000) {
-   msleep(1);
+   mdelay(1);
    us -= 1000;
  }
 
