@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/kallsyms.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/platform_device.h>
@@ -21,12 +22,18 @@
 
 #define DRIVER_NAME "tssdcard"
 
+#define DMA_SUPPORT 0  /* for when (or if) we make DMA work on the TS-7800-V2 */
+
 struct tssdcard_host {
    struct platform_device *pdev;
    void __iomem      *base;
    dma_addr_t     phys_base;
+#if DMA_SUPPORT
+   struct dma_chan		*dma_channel;
+#endif
    struct resource *res, *mem_res;
    int irq;
+   int use_dma;
 } ts_host;
 
 #include "tssdcore2.c"
@@ -138,6 +145,13 @@ static struct bio *tssdcard_get_bio(struct tssdcard_dev *dev);
 static void tssdcard_transfer(struct tssdcard_dev *dev, unsigned long sector,
     unsigned long nsect, char *buffer, int rw);
 
+#if DMA_SUPPORT
+static int tssdcard_dmastream(void *os_arg, unsigned char *dat, unsigned int buflen);
+static void tssdcard_dmaprep(void *os_arg, unsigned char *buf, unsigned int buflen);
+extern int dma_op (unsigned long dev_addr, unsigned long dat, unsigned int len, short rw);
+#endif
+extern void __attribute__((naked)) xdma_clean_range(char *start, char *end);
+extern void __attribute__((naked)) xdma_inv_range(char * start, char * end);
 
 static void tssdcard_delay(void *arg, unsigned int us)
 {
@@ -709,8 +723,19 @@ static void setup_device(struct tssdcard_dev *dev, int which)
   //dev and tssdcore struct initialization
    dev->tssdcore.os_arg = dev;
    dev->tssdcore.os_delay = tssdcard_delay;
+
+#if DMA_SUPPORT
+   if (ts_host.use_dma) {
+      dev->tssdcore.os_dmastream = tssdcard_dmastream;
+      dev->tssdcore.os_dmaprep = tssdcard_dmaprep;
+   } else {
+      dev->tssdcore.os_dmastream = NULL;
+      dev->tssdcore.os_dmaprep = NULL;
+   }
+#else
    dev->tssdcore.os_dmastream = NULL;
    dev->tssdcore.os_dmaprep = NULL;
+#endif
    dev->tssdcore.os_irqwait = NULL;
    dev->tssdcore.sd_writeparking = 1;
    dev->irq = 0;
@@ -796,6 +821,88 @@ static void setup_device(struct tssdcard_dev *dev, int which)
 
 }
 
+#if DMA_SUPPORT
+static pte_t * vmalloc_to_pte(void * vmalloc_addr)
+{
+   static volatile struct mm_struct *p_init_mm = NULL;
+   unsigned long addr = (unsigned long) vmalloc_addr;
+   pmd_t *pmdp;
+   pte_t *pte = NULL;
+   pgd_t *pgdp;
+   pud_t *pudp;
+
+  if (p_init_mm == NULL)
+     p_init_mm = (struct mm_struct *)kallsyms_lookup_name("init_mm");
+
+  if (p_init_mm == NULL)
+   panic("Symbol init_mm not found in kernel\n");
+
+  //pgd = pgd_offset_k(addr);    <<<< init_mm no longer exported by kernel
+  pgdp = pgd_offset(p_init_mm, addr);
+
+  if (!pgd_none(*pgdp)) {
+    pudp = pud_offset(pgdp, addr);
+
+    pmdp = pmd_offset(pudp, addr);
+    if (!pmd_none(*pmdp)) {
+      pte = pte_offset_kernel(pmdp, addr);
+    }
+  }
+  return pte;
+}
+
+
+static int tssdcard_dmastream(void *os_arg, unsigned char *dat, unsigned int buflen)
+{
+  struct tssdcard_dev *dev = (struct tssdcard_dev *)os_arg;
+  static unsigned char dummymem[8];
+  static unsigned long dummymem_paddr = 0;
+  unsigned long bufadr, doaddr;
+  short rw = READ;
+
+  if(dbgenable)printk("%s\n", __func__);
+
+
+  if (dat) {
+    while (buflen > (0xfff * 4)) {
+      tssdcard_dmastream(os_arg, dat, (0xfff * 4));
+      buflen -= (0xfff * 4);
+      dat += (0xfff * 4);
+    }
+    if ((unsigned long)dat >= VMALLOC_START)
+      bufadr = (vmalloc_to_pfn(dat) << PAGE_SHIFT) | ((unsigned int)dat & 0xfff);
+    else
+      bufadr = virt_to_phys((char *)dat);
+  }
+  else {
+    if (dummymem_paddr == 0) {
+      pte_t *pte = vmalloc_to_pte(dummymem);
+      dummymem_paddr = pte_pfn(*pte) << PAGE_SHIFT;
+      dummymem_paddr += (unsigned long)dummymem & 0xfff;
+    }
+  }
+  if (dat) doaddr = bufadr;
+  else doaddr = dummymem_paddr;
+
+  if (dev->tssdcore.sd_state & SDDAT_TX) {
+    rw = WRITE;
+    if (dat) xdma_clean_range((char *)dat, (char *)dat + buflen);
+  }
+  else if (dev->tssdcore.sd_state & SDDAT_RX) {
+    rw = READ;
+    if (dat) xdma_inv_range(dat, dat + buflen);
+  }
+  while(dma_op(TS7800_FPGASDDAT, doaddr, buflen, rw) < 0) schedule();
+
+  return 0;
+}
+
+static void /*int*/ tssdcard_dmaprep(void *os_arg, unsigned char *buf, unsigned int buflen)
+{
+   if(dbgenable)printk("%s\n", __func__);
+   xdma_inv_range(buf, buf + buflen);
+}
+#endif
 
 static int tssdcard_probe(struct platform_device *pdev)
 {
@@ -837,6 +944,17 @@ static int tssdcard_probe(struct platform_device *pdev)
       printk("%s: unable to get major number\n", DRIVER_NAME);
       return -EBUSY;
    }
+
+#if DMA_SUPPORT
+	if (of_find_property(np, "tssdcard,usedma", NULL) &&
+	    of_property_read_bool(np,	"tssdcard,usedma")) {
+	      printk("DMA requested in device-tree for tssdcard...\n");
+         ts_host.use_dma = 1;
+
+	} else ts_host.use_dma = 0;
+#else
+   ts_host.use_dma = 0;
+#endif
 
    devices = kmalloc(ndevices*sizeof (struct tssdcard_dev), GFP_KERNEL);
    if (devices == NULL)
