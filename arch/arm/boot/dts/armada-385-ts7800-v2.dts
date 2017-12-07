@@ -162,11 +162,16 @@
 				u-boot,dm-pre-reloc;
 			};
 
-			usb@58000 {
+			usb@58000 {                     /* USB 2.0 Host/Device port 0 */
 				status = "okay";
 			};
 
-			usb3@f0000 {
+			usb3@f0000 {                    /* USB 3.0 Host Port 0 */
+				status = "okay";
+				usb-phy = <&usb3_phy>;
+			};
+
+			usb3@f8000 {                    /* USB 3.0 Host Port 1 */
 				status = "okay";
 				usb-phy = <&usb3_phy>;
 			};
