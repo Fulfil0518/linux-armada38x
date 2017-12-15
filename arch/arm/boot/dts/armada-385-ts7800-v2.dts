@@ -85,17 +85,6 @@
 				bm,pool-short = <3>;
 			};
 
-			/* magjack/sfgp port 1 */
-			ethernet@30000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&ge1_rgmii_pins>;
-				status = "okay";
-				phy = <&phy0>;
-				phy-mode = "rgmii-id";
-				buffer-manager = <&bm>;
-				bm,pool-long = <1>;
-				bm,pool-short = <3>;
-			};
 
 			/* sgmii port to eth switch */
 			ethernet@34000 {
@@ -106,7 +95,6 @@
 				bm,pool-long = <2>;
 				bm,pool-short = <3>;
 			};
-
 
 		
 			i2c0: i2c@11000 {
@@ -139,7 +127,7 @@
 					marvell,pins = "mpp50", "mpp54", "mpp55",
 						       "mpp57", "mpp58", "mpp59";
 					marvell,function = "sd0";
-				};
+				};			
 			};
 
 			sata@a8000 {
@@ -232,6 +220,16 @@
 	   status = "okay";
 	};
 	
+   isa16550:  isa16550 {
+      compatible = "technologicsystems,isa16550";
+      #address-cells = <0x1>;
+		#size-cells = <0x0>;
+	   reg = <0xFA000000 0x400>;
+	   isa16550,nports = <4>;   /* assuming a TS-SER4 */
+      status = "okay";
+   };
+	
+	
 };
 
 &spi0 {
@@ -239,6 +237,7 @@
 	pinctrl-0 = <&spi0_pins>;
 	status = "okay";
 	u-boot,dm-pre-reloc;
+	cs-gpios = <0>, <0>, <0>, <&gpio0 28 0>;
 
 	flash: n25q064@0 {
 		#address-cells = <0x1>;
@@ -249,13 +248,31 @@
 		status = "okay";
 	};
 	
-	wilc_spi@0 {
-	   compatible = "atmel,wilc_spi";
-	   reg = <0>;
-		spi-max-frequency = <24000000>;
+	//wilc_spi@0 {
+	  // compatible = "atmel,wilc_spi";
+	   //reg = <0>;
+		//spi-max-frequency = <24000000>;
 		//wilc3000,reset-gpios = <&gpioX X X>;     /* WIFI_RESET# */
 		//wilc3000,chip-en-gpios = <&gpioX X X>;   /* EN_WIFI_PWR */
-		wilc3000,irq-gpios = <&gpio0 18 0>;        /* WIF_IRQ#, MPP_18 */
-		status = "okay";
-   };
+		//wilc3000,irq-gpios = <&gpio0 18 0>;        /* WIF_IRQ#, MPP_18 */
+		//status = "okay";
+   //};
+};
+
+&gpio0 {
+   status = "okay";
+   
+  	spi0_cs3n {
+  	   gpio-hog;
+		gpios = <28 0x0>;
+		output-high;
+		line-name = "spi0-cs3n";
+	}; 
+	
+	en_usb_host_5v {
+	   gpio-hog;
+		gpios = <45 0x0>;
+		output-high;
+		line-name = "en-usb-host-5v";
+	};
 };
