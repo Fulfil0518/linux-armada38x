@@ -199,19 +199,7 @@
 		/*vcc-supply = <&reg_xhci0_vbus>; */
 	};
 
-	/* Hook up to EN_USB_5V on FPGA
-	reg_xhci0_vbus: xhci0-vbus {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default";
-		pinctrl-0 = <&xhci0_vbus_pins>;
-		regulator-name = "xhci0-vbus";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		enable-active-high;
-		gpio = <&gpio1 12 GPIO_ACTIVE_HIGH>;
-	};*/
-	
-	tssdcard: tssdcard@0x0xfc081100 {
+	tssdcard: tssdcard@0x0xfc081100 { /* drivers/mmc/host/tssdcard.c */
 	   compatible = "technologicsystems,tssdcard";
 	   #address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -220,7 +208,7 @@
 	   status = "okay";
 	};
 	
-   isa16550:  isa16550 {
+   isa16550:  isa16550 { /* drivers/tty/serial/8250/ts7800_isa16550.c */
       compatible = "technologicsystems,isa16550";
       #address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -247,16 +235,6 @@
 		spi-max-frequency = <0x2dc6c0>;
 		status = "okay";
 	};
-	
-	//wilc_spi@0 {
-	  // compatible = "atmel,wilc_spi";
-	   //reg = <0>;
-		//spi-max-frequency = <24000000>;
-		//wilc3000,reset-gpios = <&gpioX X X>;     /* WIFI_RESET# */
-		//wilc3000,chip-en-gpios = <&gpioX X X>;   /* EN_WIFI_PWR */
-		//wilc3000,irq-gpios = <&gpio0 18 0>;        /* WIF_IRQ#, MPP_18 */
-		//status = "okay";
-   //};
 };
 
 &gpio0 {

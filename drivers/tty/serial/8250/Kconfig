@@ -378,3 +378,11 @@ config SERIAL_8250_MID
 	  Selecting this option will enable handling of the extra features
 	  present on the UART found on Intel Medfield SOC and various other
 	  Intel platforms.
+
+	  
+config TS7800_ISA16550
+   tristate "TS-7800 ISA 16550 serial port support"
+   depends on SERIAL_8250 && MACH_ARMADA_38X
+   help
+	  ISA 16550 serial port support for the Technologic Systems' TS-7800-V2 
+	  
