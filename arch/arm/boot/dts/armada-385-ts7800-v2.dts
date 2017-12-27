@@ -1,5 +1,5 @@
 /*
- * Device Tree file for Technologic Systems TS-7840
+ * Device Tree file for Technologic Systems TS-7800-V2
  *
  *  Copyright (C) 2017 Technologic Systems
  *
@@ -44,213 +44,296 @@
 #include <dt-bindings/gpio/gpio.h>
 
 / {
-	model = "Technologic Systems TS-7800-V2";
-	compatible = "technologic,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
+   model = "Technologic Systems TS-7800-V2";
+   compatible = "technologic,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
 
-	aliases {
-		ethernet1 = &eth0;		
-		spi0 = &spi0;
-	};
+   aliases {
+      ethernet1 = &eth0;
+      spi0 = &spi0;
+   };
 
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
+   chosen {
+      stdout-path = "serial0:115200n8";
+   };
 
-	memory {
-		device_type = "memory";
-		reg = <0x00000000 0x40000000>; /* 1GB */
-	};
+   memory {
+      device_type = "memory";
+      reg = <0x00000000 0x40000000>; /* 1GB */
+   };
 
-	soc {
-		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
-			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
-			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
-			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+   soc {
+      ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+           MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+           MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+           MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
+           MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
 
-		internal-regs {
-			bm@c8000 {
-				status = "okay";
-			};
+      internal-regs {
+         bm@c8000 {
+            status = "okay";
+         };
 
-			/* magjack/sfp port 0 */
-			ethernet@70000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&ge0_rgmii_pins>;
-				status = "okay";
-				phy = <&phy1>;
-				phy-mode = "rgmii-id";
-				buffer-manager = <&bm>;
-				bm,pool-long = <0>;
-				bm,pool-short = <3>;
-			};
+         /* magjack/sfp port 0 */
+         ethernet@70000 {
+            pinctrl-names = "default";
+            pinctrl-0 = <&ge0_rgmii_pins>;
+            status = "okay";
+            phy = <&phy1>;
+            phy-mode = "rgmii-id";
+            buffer-manager = <&bm>;
+            bm,pool-long = <0>;
+            bm,pool-short = <3>;
+         };
 
 
-			/* sgmii port to eth switch */
-			ethernet@34000 {
-				status = "okay";
-				phy = <&phy2>;
-				phy-mode = "sgmii";
-				buffer-manager = <&bm>;
-				bm,pool-long = <2>;
-				bm,pool-short = <3>;
-			};
+         /* sgmii port to eth switch */
+         ethernet@34000 {
+            status = "okay";
+            phy = <&phy2>;
+            phy-mode = "sgmii";
+            buffer-manager = <&bm>;
+            bm,pool-long = <2>;
+            bm,pool-short = <3>;
+         };
 
-		
-			i2c0: i2c@11000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&i2c0_pins>;
-				status = "okay";
-			};
 
-			mdio@72004 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&mdio_pins>;
-		
-				phy0: ethernet-phy@0 {
-					reg = <0>;
-				};
+         i2c0: i2c@11000 {
+            pinctrl-names = "default";
+            pinctrl-0 = <&i2c0_pins>;
+            status = "okay";
+         };
 
-				phy1: ethernet-phy@1 {
-					reg = <1>;
-				};
+         mdio@72004 {
+            pinctrl-names = "default";
+            pinctrl-0 = <&mdio_pins>;
 
-				/* eth switch */
-				phy2: ethernet-phy@2 {
-					reg = <2>;
-				};
+            phy0: ethernet-phy@0 {
+               reg = <0>;
+            };
 
-			};
+            phy1: ethernet-phy@1 {
+               reg = <1>;
+            };
 
-			pinctrl: pinctrl@18000 {
-				sdhci_pins0: sdhci-pins0 {
-					marvell,pins = "mpp50", "mpp54", "mpp55",
-						       "mpp57", "mpp58", "mpp59";
-					marvell,function = "sd0";
-				};			
-			};
+            /* eth switch */
+            phy2: ethernet-phy@2 {
+               reg = <2>;
+            };
 
-			sata@a8000 {
-				status = "okay";
-			};
+         };
 
-			sdhci@d8000 {
-				bus-width = <4>;
-				no-1-8-v;
-				non-removable;
-				pinctrl-0 = <&sdhci_pins0>;
-				pinctrl-names = "default";
-				status = "okay";
-			};
+         pinctrl: pinctrl@18000 {
+            sdhci_pins0: sdhci-pins0 {
+               marvell,pins = "mpp50", "mpp54", "mpp55",
+                         "mpp57", "mpp58", "mpp59";
+               marvell,function = "sd0";
+            };
 
-			uart0: serial@12000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&uart0_pins>;
-				status = "okay";
-				u-boot,dm-pre-reloc;
-			};
+            spi0_pins: spi-pins-0 {
+               marvell,pins = "mpp22",   // SPI_0_MOSI
+                              "mpp23",   // SPI_0_CLK
+                              "mpp24",   // SPI_0_MISO
+                              "mpp25",   // SPI_0_BOOT_CS0#
+                              "mpp26",   // CS1 n/c
+                              "mpp27";   // SPI_0_WIFI_CS2#
+               marvell,function = "spi0";
+            };
 
-			usb@58000 {                     /* USB 2.0 Host/Device port 0 */
-				status = "okay";
-			};
+            spi0_cs_gpio_pins: spi0-cs-gpio-pins {
+               marvell,pins = //"mpp25", // SPI_0_BOOT_CS0#
+                              "mpp28"; // SPI_0_CS3#
+               marvell,function = "gpio";
+               bias-pull-up;
+            };
+         };
 
-			usb3@f0000 {                    /* USB 3.0 Host Port 0 */
-				status = "okay";
-				usb-phy = <&usb3_phy>;
-			};
+         sata@a8000 {
+            status = "okay";
+         };
 
-			usb3@f8000 {                    /* USB 3.0 Host Port 1 */
-				status = "okay";
-				usb-phy = <&usb3_phy>;
-			};
-		};
+         sdhci@d8000 {
+            bus-width = <4>;
+            no-1-8-v;
+            non-removable;
+            pinctrl-0 = <&sdhci_pins0>;
+            pinctrl-names = "default";
+            status = "okay";
+         };
 
-		bm-bppi {
-			status = "okay";
-		};
+         uart0: serial@12000 {
+            pinctrl-names = "default";
+            pinctrl-0 = <&uart0_pins>;
+            status = "okay";
+            u-boot,dm-pre-reloc;
+         };
 
-		pcie-controller {
-			status = "okay";		
+         usb@58000 {                     /* USB 2.0 Host/Device port 0 */
+            status = "okay";
+         };
 
-				/* full size PCIe connector */
-			pcie@1,0 {
-				/* Port 0, Lane 0 */
-				status = "okay";
-			};
+         usb3@f0000 {                    /* USB 3.0 Host Port 0 */
+            status = "okay";
+            usb-phy = <&usb3_phy>;
+         };
 
-			/* M.2 WIFI */
-			pcie@2,0 {
-				/* Port 1, Lane 0 */
-				status = "okay";
-			};
+         usb3@f8000 {                    /* USB 3.0 Host Port 1 */
+            status = "okay";
+            usb-phy = <&usb3_phy>;
+         };
+      };
 
-			/* FPGA */
-			pcie@3,0 {
-				/* Port 2, Lane 0 */
-				status = "okay";
-			};
+      bm-bppi {
+         status = "okay";
+      };
 
-		};
-	};
+      pcie-controller {
+         status = "okay";
 
-	usb3_phy: usb3_phy {
-		compatible = "usb-nop-xceiv";
-		/* Set up a vcc_supply for U16 on the FPGA */
-		/*vcc-supply = <&reg_xhci0_vbus>; */
-	};
+            /* full size PCIe connector */
+         pcie@1,0 {
+            /* Port 0, Lane 0 */
+            status = "okay";
+         };
 
-	tssdcard: tssdcard@0x0xfc081100 { /* drivers/mmc/host/tssdcard.c */
-	   compatible = "technologicsystems,tssdcard";
-	   #address-cells = <0x1>;
-		#size-cells = <0x0>;
-	   reg = <0xfc081100 16>;
-	   tssdcard,ndevices = <1>;	   
-	   status = "okay";
-	};
-	
+         /* M.2 WIFI */
+         pcie@2,0 {
+            /* Port 1, Lane 0 */
+            status = "okay";
+         };
+
+         /* FPGA */
+         pcie@3,0 {
+            /* Port 2, Lane 0 */
+            status = "okay";
+         };
+
+      };
+   };
+
+   usb3_phy: usb3_phy {
+      compatible = "usb-nop-xceiv";
+      /* Set up a vcc_supply for U16 on the FPGA */
+      /*vcc-supply = <&reg_xhci0_vbus>; */
+   };
+
+   tssdcard: tssdcard@0x0xfc081100 { /* drivers/mmc/host/tssdcard.c */
+      compatible = "technologicsystems,tssdcard";
+      #address-cells = <0x1>;
+      #size-cells = <0x0>;
+      reg = <0xfc081100 16>;
+      tssdcard,ndevices = <1>;
+      status = "okay";
+   };
+
    isa16550:  isa16550 { /* drivers/tty/serial/8250/ts7800_isa16550.c */
       compatible = "technologicsystems,isa16550";
       #address-cells = <0x1>;
-		#size-cells = <0x0>;
-	   reg = <0xFA000000 0x400>;
-	   isa16550,nports = <4>;   /* assuming a TS-SER4 */
+      #size-cells = <0x0>;
+      reg = <0xFA000000 0x400>;
+      isa16550,nports = <4>;   /* assuming a TS-SER4 */
       status = "okay";
    };
-	
-	
+
+   ax88796: ax88796 {
+      compatible = "asix,ax88796";
+      #address-cells = <0x1>;
+      #size-cells = <0x0>;
+      reg = <0xFA000100 0x400>;
+      interrupts = <122>, <123>, <124>;
+      status = "okay";
+   };
+
+   ts7800v2_gpio: ts7800v2-gpio {   /* drivers/gpio/gpio-ts7800-v2.c */
+      compatible = "technologic,ts7800v2-gpio";
+      gpio-controller;
+      #gpio-cells = <2>;
+      base = <64>;
+      ngpios = <114>;
+      #address-cells = <0x1>;
+      #size-cells = <0>;
+      reg = <0xFC081000 0x100>;     /* syscon register */
+      status = "okay";
+   };
+
+   i2c_gpio@0 {
+      compatible = "i2c-gpio";
+      gpios = <&ts7800v2_gpio 13 GPIO_ACTIVE_LOW /* sda = CN8 pin 15*/
+       &ts7800v2_gpio 12 GPIO_ACTIVE_LOW /* scl = CN8 pin 14*/
+       >;
+
+      status = "okay";
+      i2c-gpio,sda-open-drain;
+      i2c-gpio,scl-open-drain;
+      i2c-gpio,delay-us = <2>;	/* ~100 kHz */
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      ssd1306: oled@3c {   /* Used for an Arduino-style OLED display on i2c */
+         compatible = "solomon,ssd1306fb-i2c";
+         reg = <0x3c>;
+         reset-gpios = <&ts7800v2_gpio 11 0>;   // CN8 pin 13
+         solomon,height = <64>;
+         solomon,width = <128>;
+         solomon,page-offset = <0>;
+         solomon,com-invdir;
+         solomon,com-offset = <0>;
+         solomon,prechargep1 = <1>;
+         solomon,prechargep2 = <0xF>;
+         status = "okay";
+      };
+   };
+
 };
 
 &spi0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi0_pins>;
-	status = "okay";
-	u-boot,dm-pre-reloc;
-	cs-gpios = <0>, <0>, <0>, <&gpio0 28 0>;
+   pinctrl-names = "default";
+   pinctrl-0 = <&spi0_pins &spi0_cs_gpio_pins>;
+   #address-cells = <1>;
+   #size-cells = <0>;
+   status = "okay";
+   u-boot,dm-pre-reloc;
+   num-cs = <4>;
+//   cs-gpios = <&gpio0 25 0>, <0>, <0>, <&gpio0 28 0>;
+   cs-gpios = <0>, <0>, <0>, <&gpio0 28 0>;
 
-	flash: n25q064@0 {
-		#address-cells = <0x1>;
-		#size-cells = <0x1>;
-		compatible = "is25lq016b", "jedec,spi-nor";
-		reg = <0x3>;
-		spi-max-frequency = <0x2dc6c0>;
-		status = "okay";
-	};
+   flash0: n25q064@0 {         /* SPI_0_BOOT */
+      compatible = "n25q064", "jedec,spi-nor";
+      reg = <0>;
+      spi-max-frequency = <1000000>;
+      u-boot,dm-pre-reloc;
+      status = "okay";
+   };
+
+   flash3: is25lq016b@3 {      /* FPGA SPI */
+      compatible = "is25lq016b", "jedec,spi-nor";
+      reg = <0x3>;
+      spi-max-frequency = <1000000>;
+      u-boot,dm-pre-reloc;
+      status = "okay";
+   };
 };
 
 &gpio0 {
    status = "okay";
-   
-  	spi0_cs3n {
-  	   gpio-hog;
-		gpios = <28 0x0>;
-		output-high;
-		line-name = "spi0-cs3n";
-	}; 
-	
-	en_usb_host_5v {
-	   gpio-hog;
-		gpios = <45 0x0>;
-		output-high;
-		line-name = "en-usb-host-5v";
-	};
+/*
+   spi0_cs0n {
+      gpio-hog;
+      gpios = <25 0x0>;
+      output-high;
+      line-name = "spi0-cs0n";
+   };
+*/
+   spi0_cs3n {
+      gpio-hog;
+      gpios = <28 0x0>;
+      output-high;
+      line-name = "spi0-cs3n";
+   };
+
+   en_usb_host_5v {
+      gpio-hog;
+      gpios = <45 0x0>;
+      output-high;
+      line-name = "en-usb-host-5v";
+   };
 };

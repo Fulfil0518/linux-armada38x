@@ -418,6 +418,15 @@ config GPIO_TZ1090_PDC
 	help
 	  Say yes here to support Toumaz Xenif TZ1090 PDC GPIOs.
 
+config GPIO_TS7800V2_DIO
+	tristate "Technologic Systems' TS-7800-V2 GPIO Support"
+	depends on MACH_ARMADA_38X
+	default n
+	help
+	  Say yes here to support GPIO on the DIO headers of the
+	  TS-7800-V2 board.  DIO is presented on the DIO header, the LCD
+	  header, and the PC/104 headers.
+
 config GPIO_VF610
 	def_bool y
 	depends on ARCH_MXC && SOC_VF610
