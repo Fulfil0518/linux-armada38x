@@ -338,7 +338,6 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	ret = ssd1307fb_write_cmd(par->client, SSD1307FB_SET_DISPLAY_OFFSET);
 	if (ret < 0)
 		return ret;
-
 	ret = ssd1307fb_write_cmd(par->client, par->com_offset);
 	if (ret < 0)
 		return ret;
@@ -388,8 +387,8 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	if (ret < 0)
 		return ret;
 
-	ret = ssd1307fb_write_cmd(par->client,
-		(par->device_info->need_chargepump & 0x1 << 2) & 0x14);
+	ret = ssd1307fb_write_cmd(par->client, 
+		(par->device_info->need_chargepump & 0x1) ? 0x14 : 0x10);
 	if (ret < 0)
 		return ret;
 
@@ -397,7 +396,6 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	ret = ssd1307fb_write_cmd(par->client, SSD1307FB_SET_ADDRESS_MODE);
 	if (ret < 0)
 		return ret;
-
 	ret = ssd1307fb_write_cmd(par->client,
 				  SSD1307FB_SET_ADDRESS_MODE_HORIZONTAL);
 	if (ret < 0)
@@ -407,11 +405,9 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	ret = ssd1307fb_write_cmd(par->client, SSD1307FB_SET_COL_RANGE);
 	if (ret < 0)
 		return ret;
-
 	ret = ssd1307fb_write_cmd(par->client, 0x0);
 	if (ret < 0)
 		return ret;
-
 	ret = ssd1307fb_write_cmd(par->client, par->width - 1);
 	if (ret < 0)
 		return ret;
