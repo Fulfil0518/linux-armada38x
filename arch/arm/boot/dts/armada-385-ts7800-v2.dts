@@ -100,7 +100,17 @@
          i2c0: i2c@11000 {
             pinctrl-names = "default";
             pinctrl-0 = <&i2c0_pins>;
+            clock-frequency = <100000>;
             status = "okay";
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            silabs_wdt: silabs-wdt@54 {
+                  compatible = "technologicsystems,ts7800v2-wdt";
+                  reg = <0x54>;
+                  status = "okay";
+            };
+
          };
 
          mdio@72004 {
@@ -238,7 +248,7 @@
       compatible = "asix,ax88796";
       #address-cells = <0x1>;
       #size-cells = <0x0>;
-      reg = <0xFA000100 0x400>;
+      reg = <0xFA000100 32>;  /* There are 32 8-bit registers here */
       interrupts = <122>, <123>, <124>;
       status = "okay";
    };
@@ -284,6 +294,7 @@
    };
 
 };
+
 
 &spi0 {
    pinctrl-names = "default";
@@ -337,3 +348,5 @@
       line-name = "en-usb-host-5v";
    };
 };
+
+
