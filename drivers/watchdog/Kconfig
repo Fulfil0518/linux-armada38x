@@ -1441,10 +1441,10 @@ config MEN_A21_WDT
        help
         Watchdog driver for MEN A21 VMEbus CPU Carrier Boards.
 
-   The driver can also be built as a module. If so, the module will be
-   called mena21_wdt.
+        The driver can also be built as a module. If so, the module will be
+        called mena21_wdt.
 
-   If unsure select N here.
+        If unsure select N here.
 
 
 config TS7800V2_WATCHDOG
