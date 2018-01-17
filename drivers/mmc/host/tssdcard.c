@@ -155,13 +155,7 @@ extern void __attribute__((naked)) xdma_inv_range(char * start, char * end);
 
 static void tssdcard_delay(void *arg, unsigned int us)
 {
-  while(us > 1000) {
-   mdelay(1);
-   us -= 1000;
- }
-
- if (us > 0)
-   udelay(us);
+   usleep_range(us, us);
 }
 
 
@@ -617,7 +611,7 @@ static int tssdcard_thread(void *data)
 
   current->flags |= PF_NOFREEZE;
   //set_user_nice(current, -20); /* Highest priority */
-  //set_user_nice(current, 19); /* Lower priority */
+  set_user_nice(current, 19); /* Lower priority */
 
   while (!kthread_should_stop()) {
     wait_event_interruptible(dev->event, dev->bio ||
