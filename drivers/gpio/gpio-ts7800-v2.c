@@ -17,7 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/spinlock.h>
 #include <linux/module.h>
-
+#include <linux/pci.h>
 
 #define TS7800V2_NR_DIO	    115
 #define TS7800V2_DIO_BASE  64
@@ -270,8 +270,11 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
    bit = 1 << dio_bitpositions[offset];
 
    if (offset < 25) {   /* DIO or LCD header,  */
-      if (offset == 8)   /* SPI_MISO, read-only pin, can't make an output */
+      if (offset == 8) {  /* SPI_MISO, read-only pin, can't make an output */
+         printk("error: DIO #%d, read-only pin, can't make an output \n", priv->gpio_chip.base + offset);
+         spin_unlock_irqrestore(&priv->lock, flags);
          return -EINVAL;
+      }
       reg_num = 0x08;
    } else if (offset < 57) {  /* pc/104 Row A */
       reg = readl(priv->syscon + 0x20);
@@ -289,8 +292,10 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
       writel(reg, priv->syscon + 0x28);
       reg_num = 0x18;
    } else { /* pc/104 Row D */
-      if (offset >= 103 && offset <= 106)   /* D[4..7], read-only pins */
+      if (offset >= 103 && offset <= 106) {  /* D[4..7], read-only pins */
+          spin_unlock_irqrestore(&priv->lock, flags);
           return -EINVAL;
+      }
       reg = readl(priv->syscon + 0x2C);
       reg |= bit;
       writel(reg, priv->syscon + 0x2C);
@@ -303,10 +308,9 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
       reg |= bit;
    else
       reg &= ~bit;
+
    writel(reg, priv->syscon + reg_num);
-
    priv->direction[offset / 32] &= ~(1 << offset % 32);
-
    spin_unlock_irqrestore(&priv->lock, flags);
 
    return ret;
@@ -369,16 +373,21 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
    spin_lock_irqsave(&priv->lock, flags);
 
    if (offset < 25) {   /* DIO or LCD header,  */
-      if (offset == 8)   /* SPI_MISO, read-only pin, can't set */
+      if (offset == 8)  { /* SPI_MISO, read-only pin, can't set */
+         printk("error: DIO #%d, read-only pin, can't be set\n", priv->gpio_chip.base + offset);
+         spin_unlock_irqrestore(&priv->lock, flags);
          return;
+      }
       reg_num = 0x08;
    } else if (offset < 57) {  /* pc/104 Row A */
       reg_num = 0x10;
    } else if (offset < 82) {  /* pc/104 Row B */
       reg_num = 0x14;
    } else if (offset < 100 ) { /* pc/104 Row C */
-       if (offset >= 103 && offset <= 106)   /* D[4..7], read-only pins */
+       if (offset >= 103 && offset <= 106) {  /* D[4..7], read-only pins */
+          spin_unlock_irqrestore(&priv->lock, flags);
           return;
+       }
       reg_num = 0x18;
    } else { /* pc/104 Row D */
       reg_num = 0x1C;
@@ -394,7 +403,9 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
       reg &= ~bit;
       priv->ovalue[offset / 32] &= ~(1 << offset % 32);
    }
+
    writel(reg, priv->syscon + reg_num);
+
    spin_unlock_irqrestore(&priv->lock, flags);
 
 }
@@ -427,11 +438,28 @@ static int ts7800v2_gpio_probe(struct platform_device *pdev)
    struct resource *res;
    const struct of_device_id *match;
    struct ts7800v2_gpio_priv *priv;
-   u32 ngpio;
+   u32 ngpio, reg;
    int base;
    int ret;
    unsigned long mem_size;
    void __iomem  *membase;
+   struct pci_dev *pcidev;
+
+    /* The pcie must be enabled before we can access the fpga registers! */
+
+   pcidev = pci_get_device(0x1204, 0x0001, NULL);
+   if (!pcidev) {
+      printk("Cannot find FPGA at PCI 1204:0001\n");
+      return -EINVAL;
+   }
+
+   if (!  pci_is_enabled(pcidev)) {
+      printk("%s enable FPGA...\n", __func__);
+      if (pci_enable_device(pcidev)) {
+         printk("Cannot enable FPGA at PCI 1204:0001\n");
+         return -EINVAL;
+      }
+   }
 
    match = of_match_device(ts7800v2_gpio_of_match_table, dev);
    if (!match)
@@ -465,6 +493,10 @@ static int ts7800v2_gpio_probe(struct platform_device *pdev)
 
    memset(priv->direction, 0xFF, sizeof(priv->direction));
    memset(priv->ovalue, 0, sizeof(priv->ovalue));
+   /* Set all the DIO/LCD outputs high (they are open-drain) */
+   reg = readl(priv->syscon + 8) | 0x3fffffff;
+   writel(reg, priv->syscon + 8);
+
 
    spin_lock_init(&priv->lock);
    priv->gpio_chip = template_chip;
