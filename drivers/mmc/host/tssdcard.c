@@ -118,12 +118,10 @@ static int dmach = DMA_CHANNEL;
 static void tssdcard_irqwait(void *p, unsigned int x)
 {
   uint32_t reg;
-  int n = 0;
   do {
-    if (n++ > 10000) {
-      yield();
-      n = 0;
-    }
+#ifdef CONFIG_PREEMPT_NONE
+    cond_resched();
+#endif
     reg = readl(ts_host.base + 0x108);
   } while ((reg & 4) == 0);
 }
