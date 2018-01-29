@@ -36,6 +36,13 @@ struct tssdcard_host {
    int use_dma;
 } ts_host;
 
+#define SDPEEK8(sd,x) readb((uint32_t *)((sd)->sd_regstart + (x)))
+#define SDPOKE8(sd,x,y) writeb(y, (uint32_t *)((sd)->sd_regstart + (x)))
+#define SDPEEK16(sd,x) readw((uint32_t *)((sd)->sd_regstart + (x)))
+#define SDPOKE16(sd,x,y) writew(y, (uint32_t *)((sd)->sd_regstart + (x)))
+#define SDPEEK32(sd,x) readl((uint32_t *)((sd)->sd_regstart + (x)))
+#define SDPOKE32(sd,x,y) writel(y, (uint32_t *)((sd)->sd_regstart + (x)))
+
 #include "tssdcore2.c"
 
 enum reqmode_t {
@@ -62,7 +69,6 @@ enum reqmode_t {
 #define MINOR_SHIFT     SD_SHIFT
 #define DEVNUM(kdevnum)    (MINOR(kdev_t_to_nr(kdevnum)) >> MINOR_SHIFT
 
-
 #define TS7800_IRQ_DMA     65
 #define TS7800_IRQ_WAIT    66
 #define TS7XXX_SDCARD1     0xE8000100
@@ -77,20 +83,11 @@ enum reqmode_t {
 
 #define blk_fs_request(rq) ((rq)->cmd_type == REQ_TYPE_FS)
 
-#define my_inb(x) readb(x)
-#define my_outb(x,y) writeb(x,y)
-#define my_inw(x) readw(x)
-#define my_outw(x,y) writew(x,y)
-#define my_inl(x) readl(x)
-#define my_outl(x,y) writel(x,y)
-
 struct tssdcard_dev {
   struct sdcore tssdcore;
   char *devname;
   sector_t size;        /* Device size in sectors */
   struct gendisk *gd;      /* The gendisk structure */
-  //struct timer_list timer;
-  short media_change;      /* Flag a media change? */
   int irq, irq_wait;
   unsigned long dmaregs;
   unsigned long sysconfpga;
@@ -117,6 +114,74 @@ static int threnable = THREAD_ENABLE;
 static int dbgenable = DEBUG_ENABLE;
 static int tssdcard_major = 0;
 static int dmach = DMA_CHANNEL;
+
+static void tssdcard_irqwait(void *p, unsigned int x)
+{
+  uint32_t reg;
+  int n = 0;
+  do {
+    if (n++ > 10000) {
+      yield();
+      n = 0;
+    }
+    reg = readl(ts_host.base + 0x108);
+  } while ((reg & 4) == 0);
+}
+
+void tssdcard_debug(void *dat, unsigned int code, const char *func, unsigned int line, ...)
+{
+  static unsigned int last_code;
+  va_list ap;
+  unsigned int s, x, y, z;
+
+  va_start(ap, line);
+  switch(code) {
+  case SD_HW_TMOUT:
+    s = va_arg(ap, unsigned int); /* sector */
+    x = va_arg(ap, unsigned int); /* reg val */
+    printk(KERN_INFO "tssdcard %s, %d: SD hardware timeout, sect=%u (0x%x)\n", func, line, s, x);
+    break;
+  case SD_DAT_BAD_CRC:
+    s = va_arg(ap, unsigned int); /* sector */
+    x = va_arg(ap, unsigned int); /* reg val */
+    printk(KERN_INFO "tssdcard %s, %d: SD hw detected bad CRC16, sect=%u (0x%x)\n", func, line, s, x);
+    break;
+  case READ_FAIL:
+    s = va_arg(ap, unsigned int); /* sector */
+    printk(KERN_INFO "tssdcard %s, %d: SD read failed, sect=%u\n", func, line, s);
+    break;
+  case WRITE_FAIL:
+    s = va_arg(ap, unsigned int); /* sector */
+    x = va_arg(ap, unsigned int); /* sdcmd() ret status */
+    printk(KERN_INFO "tssdcard %s, %d: SD write failed, sect=%u (0x%x)\n", func, line, s, x);
+    break;
+  case SD_STOP_FAIL:
+    x = va_arg(ap, unsigned int); /* sdcmd() ret status */
+    printk(KERN_INFO "tssdcard %s, %d: SD stop transmission failed (0x%x)\n", func, line, x);
+    break;
+  case SD_RESP_FAIL:
+    x = va_arg(ap, unsigned int); /* SD cmd */
+    y = va_arg(ap, unsigned int); /* response status */
+    printk(KERN_INFO "tssdcard %s, %d: SD cmd 0x%x resp code has err bits 0x%x\n", func, line, x, y);
+    break;
+  case SD_RESP_BAD_CRC:
+    x = va_arg(ap, unsigned int); /* SD cmd */
+    y = va_arg(ap, unsigned int); /* calculated */
+    z = va_arg(ap, unsigned int); /* rx'ed */
+    printk(KERN_INFO "tssdcard %s, %d: SD cmd 0x%x resp bad crc (0x%x != 0x%x)\n", func, line, x, y, z);
+    break;
+  case SD_RESP_WRONG_REQ:
+    x = va_arg(ap, unsigned int); /* SD cmd */
+    y = va_arg(ap, unsigned int); /* cmd in response */
+    printk(KERN_INFO "tssdcard %s, %d: SD response for wrong cmd. (0x%x != 0x%x)\n", func, line, x, y);
+  case SD_SW_TMOUT:
+      printk(KERN_INFO "tssdcard %s, %d: SD soft timeout\n", func, line);
+    break;
+  }
+  va_end(ap);
+
+  last_code = code;
+}
 
 static const struct platform_device_id tssdcard_devtype[] = {
    {
@@ -265,35 +330,25 @@ static void tssdcard_transfer(struct tssdcard_dev *dev, unsigned long sector,
       return;
    }
 
-   //del_timer(&dev->timer);
    switch (rw) {
    case WRITE:
     dev->write_activity = 1;
-
     ret = sdwrite(&dev->tssdcore, sector, buffer, nsect);
     if (ret && !dev->tssdcore.sd_wprot) {
+      printk(KERN_INFO "Card write failed, resetting and retrying...\n");
       sdreset(&dev->tssdcore);
       ret = sdwrite(&dev->tssdcore, sector, buffer, nsect);
     }
-    //if (ret == 0) mark_buffer_uptodate(buffer, 1);
-    //dev->timer.expires = jiffies + (HZ / 2);
-    //add_timer(&dev->timer);
     break;
 
   case READ:
   case READA:
     ret = sdread(&dev->tssdcore, sector, buffer, nsect);
     if (ret) {
+      printk(KERN_INFO "Card read failed, resetting and retrying...\n");
       sdreset(&dev->tssdcore);
       ret = sdread(&dev->tssdcore, sector, buffer, nsect);
     }
-    dev->parksect = sector + nsect - 1;
-
-    //sdread will park at sector+nsect+1, if we read the last sector
-    //this means we are parked on an invalid sector so reset the card.
-    if ( (sector + nsect) >= (dev->size*512/KERNEL_SECTOR_SIZE) )
-      sdreset(&dev->tssdcore);
-
     break;
   }
 
@@ -455,14 +510,9 @@ static void tssdcard_release(struct gendisk *disk, fmode_t mode)
 #define TSSDCARD_GET_WRITE_ACTIVITY _IOR(TSSDCARD_IOC_MAGIC, 1, int)
 #define TSSDCARD_GET_SECTOR_COUNT   _IOR(TSSDCARD_IOC_MAGIC, 2, int)
 
-
 /*
  * The ioctl() implementation
  */
-
-// int tssdcard_ioctl(struct inode *inode, struct file *filp,
-//    unsigned int cmd, unsigned long arg)
-
 int tssdcard_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd,
           unsigned long arg)
 {
@@ -478,10 +528,6 @@ int tssdcard_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd,
          * multiple of 512 (256k): tell we have 32 sectors, 16 heads,
          * whatever cylinders.
          */
-
-        // TODO: This should match what the SD cards look like in a
-        // USB adapter dongle.  -- JO
-
       geo.cylinders = dev->size / (16 * 32);
       geo.heads = 16;
       geo.sectors = 32;
@@ -517,52 +563,25 @@ int tssdcard_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd,
         return -EFAULT;
 
       return 0;
-
-
-    //default:
-      /*
-       * For ioctls we don't understand, let the block layer handle them.
-       */
-      //return blkdev_ioctl(inode, filp, cmd, arg);
-
   }
 
   return -ENOTTY; /* unknown command */
 }
 
-
-int tssdcard_media_changed(struct gendisk *gd)
-{
-  struct tssdcard_dev *dev;
-
-  char buf[512];
-  int ret;
-
-  dev = gd->private_data;
-  if (dev == NULL) {
-   printk("%s %d oops, gd->dev is NULL\n", __func__, __LINE__);
-   return 0;
-  }
-
-  if (down_interruptible(&sem)) return -ERESTARTSYS;
-  ret = sdread(&dev->tssdcore, 1, buf, 1);
-  up(&sem);
-  return ret;
-}
-
 int tssdcard_revalidate(struct gendisk *gd)
 {
   struct tssdcard_dev *dev;
-
   dev = gd->private_data;
-  if (dev == NULL) {
-   printk("%s %d oops, gd->dev is NULL\n", __func__, __LINE__);
-   return 0;
+
+  printk(KERN_INFO "Calling %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+  if(!dev->size)
+  {
+    printk(KERN_INFO "Calling %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+    dev->size = sdreset(&dev->tssdcore);
+    if (dev->size)
+      set_capacity(dev->gd, (long long)dev->size * 512 / KERNEL_SECTOR_SIZE);
   }
 
-  dev->size = sdreset(&dev->tssdcore);
-  if (dev->size)
-    set_capacity(dev->gd, (long long)dev->size * 512 / KERNEL_SECTOR_SIZE);
   return 0;
 }
 
@@ -608,10 +627,6 @@ static int tssdcard_thread(void *data)
 {
   struct tssdcard_dev *dev = data;
   struct bio *bio;
-
-  current->flags |= PF_NOFREEZE;
-  //set_user_nice(current, -20); /* Highest priority */
-  set_user_nice(current, 19); /* Lower priority */
 
   while (!kthread_should_stop()) {
     wait_event_interruptible(dev->event, dev->bio ||
@@ -673,11 +688,9 @@ static struct block_device_operations tssdcard_ops = {
   .owner    = THIS_MODULE,
   .open        = tssdcard_open,
   .release     = tssdcard_release,
-  .media_changed  = tssdcard_media_changed,
   .revalidate_disk   = tssdcard_revalidate,
   .ioctl    = tssdcard_ioctl
 };
-
 
 static void setup_device(struct tssdcard_dev *dev, int which)
 {
@@ -696,7 +709,7 @@ static void setup_device(struct tssdcard_dev *dev, int which)
          return;
       }
 
-      ts_host.base = ioremap(ts_host.mem_res->start, mem_size);
+      ts_host.base = ioremap_nocache(ts_host.mem_res->start, mem_size);
 
       if (IS_ERR(ts_host.base)) {
          printk("Could not map resource\n");
@@ -730,8 +743,10 @@ static void setup_device(struct tssdcard_dev *dev, int which)
    dev->tssdcore.os_dmastream = NULL;
    dev->tssdcore.os_dmaprep = NULL;
 #endif
-   dev->tssdcore.os_irqwait = NULL;
+   dev->tssdcore.os_irqwait = tssdcard_irqwait;
    dev->tssdcore.sd_writeparking = 1;
+   dev->tssdcore.debug = tssdcard_debug;
+   dev->tssdcore.debug_arg = dev;
    dev->irq = 0;
    dev->irq_wait = 0;
    dev->dmach = dmach;
