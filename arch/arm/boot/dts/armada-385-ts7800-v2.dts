@@ -230,7 +230,7 @@
       compatible = "technologicsystems,tssdcard";
       #address-cells = <0x1>;
       #size-cells = <0x0>;
-      reg = <0xfc081100 16>;
+      reg = <0xfc081100 512>;
       tssdcard,ndevices = <1>;
       status = "okay";
    };
