@@ -571,10 +571,8 @@ int tssdcard_revalidate(struct gendisk *gd)
   struct tssdcard_dev *dev;
   dev = gd->private_data;
 
-  printk(KERN_INFO "Calling %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
   if(!dev->size)
   {
-    printk(KERN_INFO "Calling %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
     dev->size = sdreset(&dev->tssdcore);
     if (dev->size)
       set_capacity(dev->gd, (long long)dev->size * 512 / KERNEL_SECTOR_SIZE);
@@ -588,14 +586,10 @@ static void tssdcard_sdcommit(unsigned long ldev)
   struct tssdcard_dev *dev = (struct tssdcard_dev *) ldev;
   char buf[512];
 
-   //printk("%s %d, dev = 0x%08lX\n", __func__, __LINE__, (unsigned long)dev);
-
   if (dev == NULL) {
    printk("%s %d oops\n", __func__, __LINE__);
    return;
   }
-
-  //printk("%s %d, LUN: %d\n", __func__, __LINE__, dev->tssdcore.sd_lun);
 
   if (down_interruptible(&sem)) return; // -ERESTARTSYS;
   sdread(&dev->tssdcore, dev->parksect, buf, 1);
