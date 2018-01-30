@@ -2061,8 +2061,6 @@ int sdreset(struct sdcore *sd) {
 	sd->refcnt++;
 	BUG_ON(sd->refcnt != 1);
 
-	printk("Calling sdreset from %pS\n", __builtin_return_address(0));
-
 	reset_timeout(sd);
 	sd_initcrc(sd);
 	sd->parked_sector = 0;
