@@ -928,9 +928,12 @@ static int tssdcard_probe(struct platform_device *pdev)
       return -EINVAL;
    }
 
-   if (pci_enable_device (pcidev)) {
-      printk("Cannot enable FPGA at PCI 1204:0001\n");
-      return -EINVAL;
+    if (!  pci_is_enabled(pcidev)) {
+      printk("%s enable FPGA...\n", __func__);
+      if (pci_enable_device(pcidev)) {
+         printk("Cannot enable FPGA at PCI 1204:0001\n");
+         return -EINVAL;
+      }
    }
 
    np = pdev->dev.of_node;
