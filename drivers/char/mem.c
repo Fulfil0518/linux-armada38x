@@ -322,12 +322,27 @@ static int mmap_mem(struct file *file, struct vm_area_struct *vma)
 {
 	size_t size = vma->vm_end - vma->vm_start;
 
+#ifdef CONFIG_MACH_ARMADA_38X
 	// This fixes TS-7800v1 to TS-7800v2 fpga compatibility
-	if ((vma->vm_pgoff >> 8) == 0xe80) 
+	if ((vma->vm_pgoff >> 8) == 0xe80)
 	  vma->vm_pgoff = 0xfc081 + (vma->vm_pgoff & 0xff);
-	else if (((vma->vm_pgoff & 0xfc000) >> 8) == 0xec0)
-	  vma->vm_pgoff = 0xf8000 + (vma->vm_pgoff & 0x3fff);
-
+#ifdef CONFIG_TS7800V2_REMAP_PC104
+   else switch(((vma->vm_pgoff & 0xff000) >> 8)) {
+      case 0xec0:  // pc104 8-bit mem at 0xF8000000
+         vma->vm_pgoff = 0xf8000 + (vma->vm_pgoff & 0x0fff);
+         break;
+      case 0xed0:  // pc104 16-bit mem at 0xF9000000
+         vma->vm_pgoff = 0xf9000 + (vma->vm_pgoff & 0x0fff);
+         break;
+      case 0xee0:  // pc104 8-bit io at 0xFA000000
+         vma->vm_pgoff = 0xfa000 + (vma->vm_pgoff & 0x0fff);
+         break;
+      case 0xef0:  // pc104 16-bit io at 0xFB000000
+         vma->vm_pgoff = 0xfb000 + (vma->vm_pgoff & 0x0fff);
+         break;
+   }
+#endif
+#endif
 	if (!valid_mmap_phys_addr_range(vma->vm_pgoff, size))
 		return -EINVAL;
 

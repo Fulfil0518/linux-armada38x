@@ -66,6 +66,14 @@ config MACH_ARMADA_38X
 	  Say 'Y' here if you want your kernel to support boards based
 	  on the Marvell Armada 380/385 SoC with device tree.
 
+config TS7800V2_REMAP_PC104
+   bool "Remap TS7800-V1 PC/104 memory and io spaces" 
+   depends on MACH_ARMADA_38X
+   help
+      Say 'Y' here if you have a TS-7800-V2 board and want to remap the
+      TS-7800-V1 PC/104 memory and io spaces into the TS-7800-V2 space.
+      See the wiki page for details.
+      
 config MACH_ARMADA_39X
 	bool "Marvell Armada 39x boards" if ARCH_MULTI_V7
 	select ARM_GIC
