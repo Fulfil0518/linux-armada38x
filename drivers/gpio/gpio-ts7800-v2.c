@@ -19,14 +19,14 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#define TS7800V2_NR_DIO	    115
+#define TS7800V2_NR_DIO	    116
 #define TS7800V2_DIO_BASE  64
 
 struct ts7800v2_gpio_priv {
    void __iomem  *syscon;
    struct gpio_chip gpio_chip;
    spinlock_t lock;
-   unsigned int direction[4];      /* enough for all 114 DIOs, 1=in, 0=out */
+   unsigned int direction[4];      /* enough for all 116 DIOs, 1=in, 0=out */
    unsigned int ovalue[4];
 };
 
@@ -36,10 +36,10 @@ struct ts7800v2_gpio_priv {
 
       14 pins on the DIO header (one of which is read-only)
       12 pins on the LCD header
-      89 pins on the PC/104 headers (four of which are read-only)
-     115 pins total
+      90 pins on the PC/104 headers (four of which are read-only)
+     116 pins total
 
-   Map of DIO[0] through DIO[114].
+   Map of DIO[0] through DIO[117].
    DIO number : bit position in relevant syscon reg or regs. */
 
 static unsigned int dio_bitpositions[] = {
@@ -102,8 +102,8 @@ static unsigned int dio_bitpositions[] = {
   27, // 53 A[27]
   28, // 54 A[28]
   29, // 55 A[28]
-  30, // 56 A[30]
-  31, // 57 A[31]
+  30, // 56 A[30]    CN5 pin 31
+  31, // 57 A[31]    whoops, there is no A[31] on CN5 
 
   1, // 58 B[1]       CN5 pin B2
   3, // 59 B[3]       CN5 pin B4
@@ -131,39 +131,40 @@ static unsigned int dio_bitpositions[] = {
   29, // 81 B[29]     CN5 pin B30
   31, // 82 B[31]     CN5 pin B32
 
-  1, // 83 C[1]
-  2, // 84 C[2]
-  3, // 85 C[3]
-  4, // 86 C[4]
-  5, // 87 C[5]
-  6, // 88 C[6]
-  7, // 89 C[7]
-  8, // 90 C[8]
-  9, // 91 C[9]
-  10, // 92 C[10]
-  11, // 93 C[11]
-  12, // 94 C[12]
-  13, // 95 C[13]
-  14, // 96 C[14]
-  15, // 97 C[15]
-  16, // 98 C[16]
-  17, // 99 C[17]
-  18, // 100 C[18]
+  1, // 83 C[1]       CN6 pin C1
+  2, // 84 C[2]       CN6 pin C2
+  3, // 85 C[3]       CN6 pin C3
+  4, // 86 C[4]       CN6 pin C4
+  5, // 87 C[5]       CN6 pin C5
+  6, // 88 C[6]       CN6 pin C6
+  7, // 89 C[7]       CN6 pin C7
+  8, // 90 C[8]       CN6 pin C8
+  9, // 91 C[9]       CN6 pin C9
+  10, // 92 C[10]     CN6 pin C10
+  11, // 93 C[11]     CN6 pin C11
+  12, // 94 C[12]     CN6 pin C12
+  13, // 95 C[13]     CN6 pin C13
+  14, // 96 C[14]     CN6 pin C14
+  15, // 97 C[15]     CN6 pin C15
+  16, // 98 C[16]     CN6 pin C16
+  17, // 99 C[17]     CN6 pin C17
+  18, // 100 C[18]    CN6 pin C18
 
-  1, // 101 D[1]
-  2, // 102 D[2]
-  3, // 103 D[3]
-  4, // 104 D[4]  (read-only)
-  5, // 105 D[5]  (read-only)
-  6, // 106 D[6]  (read-only)
-  7, // 107 D[7]  (read-only)
-  9, // 108 D[9]
-  10, // 109 D[10]
-  11, // 110 D[11]
-  12, // 111 D[12]
-  13, // 112 D[13]
-  14, // 113 D[14]
-  15, // 114 D[15]
+  1, // 101 D[1]      CN6 pin D1
+  2, // 102 D[2]      CN6 pin D2
+  3, // 103 D[3]      CN6 pin D3
+  4, // 104 D[4]      CN6 pin D4  (read-only)
+  5, // 105 D[5]      CN6 pin D5  (read-only)
+  6, // 106 D[6]      CN6 pin D6  (read-only)
+  7, // 107 D[7]      CN6 pin D7  (read-only)
+  9, // 108 D[9]      CN6 pin D9
+  10, // 109 D[10]    CN6 pin D10
+  11, // 110 D[11]    CN6 pin D11
+  12, // 111 D[12]    CN6 pin D12
+  13, // 112 D[13]    CN6 pin D13
+  14, // 113 D[14]    CN6 pin D14
+  15, // 114 D[15]    CN6 pin D15
+  17, // 115 D[17]    CN6 pin D17
 };
 
 static inline struct ts7800v2_gpio_priv *to_gpio_ts7800v2(struct gpio_chip *chip)
@@ -218,21 +219,21 @@ static int ts7800v2_gpio_direction_input(struct gpio_chip *chip,
    priv->direction[offset / 32] |= (1 << offset % 32);
    bit = 1 << dio_bitpositions[offset];
 
-   if (offset < 25) {   /* DIO or LCD header,  */
+   if (offset < 26) {   /* DIO or LCD header,  */
       /* These pins are open-drain with pull-ups, so making one an 'input'
         is the same as setting the pin high */
       reg = readl(priv->syscon + 0x08);
       reg |= bit;
       writel(reg, priv->syscon + 0x08);
-   } else if (offset < 57) {  /* pc/104 Row A */
+   } else if (offset < 58) {  /* pc/104 Row A */
       reg = readl(priv->syscon + 0x20);
       reg &= ~bit;
       writel(reg, priv->syscon + 0x20);
-   } else if (offset < 82) {  /* pc/104 Row B */
+   } else if (offset < 83) {  /* pc/104 Row B */
       reg = readl(priv->syscon + 0x24);
       reg &= ~bit;
       writel(reg, priv->syscon + 0x24);
-   } else if (offset < 100 ) { /* pc/104 Row C */
+   } else if (offset < 101 ) { /* pc/104 Row C */
       reg = readl(priv->syscon + 0x28);
       reg &= ~bit;
       writel(reg, priv->syscon + 0x28);
@@ -269,30 +270,30 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
 
    bit = 1 << dio_bitpositions[offset];
 
-   if (offset < 25) {   /* DIO or LCD header,  */
+   if (offset < 26) {   /* DIO or LCD header,  */
       if (offset == 8) {  /* SPI_MISO, read-only pin, can't make an output */
          printk("error: DIO #%d, read-only pin, can't make an output \n", priv->gpio_chip.base + offset);
          spin_unlock_irqrestore(&priv->lock, flags);
          return -EINVAL;
       }
       reg_num = 0x08;
-   } else if (offset < 57) {  /* pc/104 Row A */
+   } else if (offset < 58) {  /* pc/104 Row A */
       reg = readl(priv->syscon + 0x20);
       reg |= bit;
       writel(reg, priv->syscon + 0x20);
       reg_num = 0x10;
-   } else if (offset < 82) {  /* pc/104 Row B */
+   } else if (offset < 83) {  /* pc/104 Row B */
       reg = readl(priv->syscon + 0x24);
       reg |= bit;
       writel(reg, priv->syscon + 0x24);
       reg_num = 0x14;
-   } else if (offset < 100 ) { /* pc/104 Row C */
+   } else if (offset < 101 ) { /* pc/104 Row C */
       reg = readl(priv->syscon + 0x28);
       reg |= bit;
       writel(reg, priv->syscon + 0x28);
       reg_num = 0x18;
    } else { /* pc/104 Row D */
-      if (offset >= 103 && offset <= 106) {  /* D[4..7], read-only pins */
+      if (offset >= 104 && offset <= 107) {  /* D[4..7], read-only pins */
           spin_unlock_irqrestore(&priv->lock, flags);
           return -EINVAL;
       }
@@ -334,13 +335,13 @@ static int ts7800v2_gpio_get(struct gpio_chip *chip, unsigned int offset)
    //priv->direction[offset / 32] &= ~(1 << offset % 32);
    bit = 1 << dio_bitpositions[offset];
 
-   if (offset < 25) {   /* DIO or LCD header,  */
+   if (offset < 26) {   /* DIO or LCD header,  */
       reg_num = 0x04;
-   } else if (offset < 57) {  /* pc/104 Row A */
+   } else if (offset < 58) {  /* pc/104 Row A */
       reg_num = 0x10;
-   } else if (offset < 82) {  /* pc/104 Row B */
+   } else if (offset < 83) {  /* pc/104 Row B */
       reg_num = 0x14;
-   } else if (offset < 100 ) { /* pc/104 Row C */
+   } else if (offset < 101 ) { /* pc/104 Row C */
       reg_num = 0x18;
    } else { /* pc/104 Row D */
       reg_num = 0x1C;
@@ -372,19 +373,19 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 
    spin_lock_irqsave(&priv->lock, flags);
 
-   if (offset < 25) {   /* DIO or LCD header,  */
+   if (offset < 26) {   /* DIO or LCD header,  */
       if (offset == 8)  { /* SPI_MISO, read-only pin, can't set */
          printk("error: DIO #%d, read-only pin, can't be set\n", priv->gpio_chip.base + offset);
          spin_unlock_irqrestore(&priv->lock, flags);
          return;
       }
       reg_num = 0x08;
-   } else if (offset < 57) {  /* pc/104 Row A */
+   } else if (offset < 58) {  /* pc/104 Row A */
       reg_num = 0x10;
-   } else if (offset < 82) {  /* pc/104 Row B */
+   } else if (offset < 83) {  /* pc/104 Row B */
       reg_num = 0x14;
-   } else if (offset < 100 ) { /* pc/104 Row C */
-       if (offset >= 103 && offset <= 106) {  /* D[4..7], read-only pins */
+   } else if (offset < 101 ) { /* pc/104 Row C */
+       if (offset >= 104 && offset <= 107) {  /* D[4..7], read-only pins */
           spin_unlock_irqrestore(&priv->lock, flags);
           return;
        }

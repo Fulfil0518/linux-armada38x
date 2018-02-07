@@ -258,7 +258,7 @@
       gpio-controller;
       #gpio-cells = <2>;
       base = <64>;
-      ngpios = <114>;
+      ngpios = <116>;
       #address-cells = <0x1>;
       #size-cells = <0>;
       reg = <0xFC081000 0x100>;     /* syscon register */
