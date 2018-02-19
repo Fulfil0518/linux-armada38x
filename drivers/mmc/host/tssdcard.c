@@ -28,6 +28,7 @@ struct tssdcard_host {
    struct platform_device *pdev;
    void __iomem      *base;
    dma_addr_t     phys_base;
+   size_t         phys_size;
 #if DMA_SUPPORT
    struct dma_chan		*dma_channel;
 #endif
@@ -689,13 +690,14 @@ static void setup_device(struct tssdcard_dev *dev, int which)
    unsigned int scratchreg0;
    unsigned long conreg;
 
-   memset (dev, 0, sizeof (struct tssdcard_dev));
+   memset(dev, 0, sizeof (struct tssdcard_dev));
 
   //IO Remapping (use the same virtual address for all LUNs)
 
    if (! ts_host.base) {
-      size_t mem_size = resource_size(ts_host.res);
-      ts_host.mem_res = request_mem_region(ts_host.res->start, mem_size, DRIVER_NAME);
+      size_t mem_size = ts_host.phys_size; //resource_size(ts_host.res);
+
+      ts_host.mem_res = request_mem_region(ts_host.phys_base, mem_size, DRIVER_NAME); //request_mem_region(ts_host.res->start, mem_size, DRIVER_NAME);
       if (! ts_host.mem_res) {
          printk("Failed to request memory region\n");
          return;
@@ -817,9 +819,7 @@ static void setup_device(struct tssdcard_dev *dev, int which)
   dev->gd->private_data = dev;
   set_capacity(dev->gd, (long long)dev->size * 512 / KERNEL_SECTOR_SIZE);
   add_disk(dev->gd);
-
   register_reboot_notifier(&shutdownhook_notifier);
-
 }
 
 #if DMA_SUPPORT
@@ -910,8 +910,11 @@ static int tssdcard_probe(struct platform_device *pdev)
    int i, ret = 0;
    const struct of_device_id *of_id;
    struct device_node *np;
-   struct resource *res;
+   struct resource *res = NULL;
    struct pci_dev *pcidev;
+   unsigned long fpgasize;
+   void __iomem  *fpgabase;
+   unsigned int p = 0;
 
    printk("TS-7800-V2 SD card driver\n");
 
@@ -928,12 +931,32 @@ static int tssdcard_probe(struct platform_device *pdev)
       return -EINVAL;
    }
 
-    if (!  pci_is_enabled(pcidev)) {
+   if (!  pci_is_enabled(pcidev)) {
       printk("%s enable FPGA...\n", __func__);
       if (pci_enable_device(pcidev)) {
          printk("Cannot enable FPGA at PCI 1204:0001\n");
          return -EINVAL;
       }
+   }
+
+    /* try to get the FPGA's address by looking at the BAR register */
+   if (pci_read_config_dword(pcidev, PCI_BASE_ADDRESS_2, &p) || p == 0) {
+      /* Failed, so try device-tree */
+      pr_err("Error reading FPGA address from PCI config-space; trying device-tree..\n");
+
+      res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+      if (!res) {
+          dev_err(&pdev->dev, "no MEM specified in Device-Tree\n");
+          return -ENXIO;
+       }
+
+      fpgasize = resource_size(res);
+      fpgabase = (void __iomem  *)res->start;
+
+   } else {
+      res = NULL;
+      fpgasize = 512;
+      fpgabase = (void __iomem  *) p + 0x100;   // base of sdcore in FPGA
    }
 
    np = pdev->dev.of_node;
@@ -950,12 +973,12 @@ static int tssdcard_probe(struct platform_device *pdev)
    }
 
 #if DMA_SUPPORT
-	if (of_find_property(np, "tssdcard,usedma", NULL) &&
-	    of_property_read_bool(np,	"tssdcard,usedma")) {
-	      printk("DMA requested in device-tree for tssdcard...\n");
+   if (of_find_property(np, "tssdcard,usedma", NULL) &&
+       of_property_read_bool(np,	"tssdcard,usedma")) {
+         printk("DMA requested in device-tree for tssdcard...\n");
          ts_host.use_dma = 1;
 
-	} else ts_host.use_dma = 0;
+   } else ts_host.use_dma = 0;
 #else
    ts_host.use_dma = 0;
 #endif
@@ -969,14 +992,12 @@ static int tssdcard_probe(struct platform_device *pdev)
 
    init_waitqueue_head(&qwait);
 
-   if ((res=platform_get_resource(pdev, IORESOURCE_MEM, 0)) == NULL) {
-      printk("Can't get IORESOURCE_MEM\n");
-      goto out_free;
-   }
-
    ts_host.pdev = pdev;
    ts_host.res = res;
-   ts_host.phys_base = res->start;
+   ts_host.phys_base = (dma_addr_t)fpgabase;
+   ts_host.phys_size = fpgasize;
+   ts_host.base = NULL;
+
    ts_host.irq = 0;
 
    for (i=0; i < ndevices; i++)
@@ -1003,6 +1024,8 @@ static int tssdcard_remove(struct platform_device *pdev)
 
    if(dbgenable) printk(KERN_NOTICE "%s %d\n", __func__, __LINE__);
 
+   unregister_reboot_notifier(&shutdownhook_notifier);
+
    for (i=0; i<ndevices; i++) {
       if(dbgenable) printk(KERN_NOTICE "dev[%d] ...\n", i);
 
@@ -1010,41 +1033,39 @@ static int tssdcard_remove(struct platform_device *pdev)
       if (dev->size == 0) continue;
 
       if (dev->gd) {
-         if(dbgenable) printk(KERN_NOTICE "put_disk() %s\n", dev->gd->disk_name);
+         del_gendisk(dev->gd);
          put_disk(dev->gd);
-
-   }
-
-   if (dev->devname)
-      kfree(dev->devname);
-
-    if (dev->queue) {
-      if (reqmode == RM_NOQUEUE) {
-         blk_cleanup_queue(dev->queue);
-         blk_put_queue(dev->queue);
-         }
-      else {
-        blk_cleanup_queue(dev->queue);
-        }
-    }
-
-    if (dev->thread != NULL) {
-      kthread_stop(dev->thread);
-      dev->thread = NULL;
-    }
+      }
 
 
-    if (i == 0) {
+      if (dev->devname)
+         kfree(dev->devname);
+
+      unregister_blkdev(tssdcard_major, DRIVER_NAME);
+
+      if (dev->queue) {
+         if (reqmode == RM_NOQUEUE) {
+            blk_cleanup_queue(dev->queue);
+            blk_put_queue(dev->queue);
+            }
+            else {
+               blk_cleanup_queue(dev->queue);
+            }
+      }
+
+      if (dev->thread != NULL) {
+         kthread_stop(dev->thread);
+         dev->thread = NULL;
+      }
+
       iounmap((unsigned long *) ts_host.base);
       ts_host.base = NULL;
       release_resource(ts_host.mem_res);
-    }
-  }
+   }
 
-  unregister_blkdev(tssdcard_major, DRIVER_NAME);
-  kfree(devices);
-  devices = NULL;
-  return 0;
+   kfree(devices);
+   devices = NULL;
+   return 0;
 }
 
 static struct platform_driver tssdcard_driver = {

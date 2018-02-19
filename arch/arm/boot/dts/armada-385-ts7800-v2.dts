@@ -143,15 +143,15 @@
                marvell,pins = "mpp22",   // SPI_0_MOSI
                               "mpp23",   // SPI_0_CLK
                               "mpp24",   // SPI_0_MISO
-                              "mpp25",   // SPI_0_BOOT_CS0#
+                              "mpp25",   // SPI_0_BOOT_CS0#, native CS[0]
                               "mpp26",   // CS1 n/c
-                              "mpp27";   // SPI_0_WIFI_CS2#
+                              "mpp27";   // SPI_0_WIFI_CS2#, native CS[3]
                marvell,function = "spi0";
             };
 
             spi0_cs_gpio_pins: spi0-cs-gpio-pins {
-               marvell,pins = //"mpp25", // SPI_0_BOOT_CS0#
-                              "mpp28"; // SPI_0_CS3#
+               marvell,pins = "mpp18", // WIFI_IRQ#
+                              "mpp28"; // SPI_0_CS3#, non-native CS[4]
                marvell,function = "gpio";
                bias-pull-up;
             };
@@ -258,7 +258,7 @@
       gpio-controller;
       #gpio-cells = <2>;
       base = <64>;
-      ngpios = <116>;
+      ngpios = <118>;
       #address-cells = <0x1>;
       #size-cells = <0>;
       reg = <0xFC081000 0x100>;     /* syscon register */
@@ -303,9 +303,8 @@
    #size-cells = <0>;
    status = "okay";
    u-boot,dm-pre-reloc;
-   num-cs = <4>;
-//   cs-gpios = <&gpio0 25 0>, <0>, <0>, <&gpio0 28 0>;
-   cs-gpios = <0>, <0>, <0>, <&gpio0 28 0>;
+   num-cs = <5>;
+   cs-gpios = <0>, <0>, <0>, <0>, <&gpio0 28 0>; // cs[0], cs[1], cs[2], cs[3], cs[4]
 
    flash0: n25q064@0 {         /* SPI_0_BOOT */
       compatible = "n25q064", "jedec,spi-nor";
@@ -315,25 +314,28 @@
       status = "okay";
    };
 
-   flash3: is25lq016b@3 {      /* FPGA SPI */
+   flash3: is25lq016b@3 {      /* FPGA SPI , SPI_0_CS3#, non-native gpio cs[4] */
       compatible = "is25lq016b", "jedec,spi-nor";
-      reg = <0x3>;
+      reg = <0x4>;
       spi-max-frequency = <1000000>;
       u-boot,dm-pre-reloc;
       status = "okay";
    };
+
+   wilc_spi@0 {   /* WILC3000 module, SPI_0_WIFI_CS2#, MPP[27] = native cs[3]*/
+      compatible = "atmel,wilc_spi";
+      reg = <3>;
+      spi-max-frequency = <24000000>;
+      wilc3000,reset-gpios = <&ts7800v2_gpio 117 GPIO_ACTIVE_LOW>;     /* WIFI_RESET#  */
+      wilc3000,chip-en-gpios = <&ts7800v2_gpio 116 GPIO_ACTIVE_HIGH>;   /* EN_WIFI_PWR */
+      wilc3000,irq-gpios = <&gpio0 18 0>;       /* WIFI_IRQ# is on MPP[18] */
+      status = "okay";
+    };
 };
 
 &gpio0 {
    status = "okay";
-/*
-   spi0_cs0n {
-      gpio-hog;
-      gpios = <25 0x0>;
-      output-high;
-      line-name = "spi0-cs0n";
-   };
-*/
+
    spi0_cs3n {
       gpio-hog;
       gpios = <28 0x0>;
@@ -347,6 +349,7 @@
       output-high;
       line-name = "en-usb-host-5v";
    };
+
 };
 
 

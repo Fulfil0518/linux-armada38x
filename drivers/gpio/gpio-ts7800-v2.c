@@ -19,14 +19,14 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#define TS7800V2_NR_DIO	    116
+#define TS7800V2_NR_DIO	    118
 #define TS7800V2_DIO_BASE  64
 
 struct ts7800v2_gpio_priv {
    void __iomem  *syscon;
    struct gpio_chip gpio_chip;
    spinlock_t lock;
-   unsigned int direction[4];      /* enough for all 116 DIOs, 1=in, 0=out */
+   unsigned int direction[4];      /* enough for all 118 DIOs, 1=in, 0=out */
    unsigned int ovalue[4];
 };
 
@@ -38,6 +38,9 @@ struct ts7800v2_gpio_priv {
       12 pins on the LCD header
       90 pins on the PC/104 headers (four of which are read-only)
      116 pins total
+
+     Also, the EN_WIFI_PWR and WIFI_RESET lines on the TS-7800-V2 are
+     controlled by this driver.
 
    Map of DIO[0] through DIO[117].
    DIO number : bit position in relevant syscon reg or regs. */
@@ -103,7 +106,7 @@ static unsigned int dio_bitpositions[] = {
   28, // 54 A[28]
   29, // 55 A[28]
   30, // 56 A[30]    CN5 pin 31
-  31, // 57 A[31]    whoops, there is no A[31] on CN5 
+  31, // 57 A[31]    whoops, there is no A[31] on CN5
 
   1, // 58 B[1]       CN5 pin B2
   3, // 59 B[3]       CN5 pin B4
@@ -165,6 +168,9 @@ static unsigned int dio_bitpositions[] = {
   14, // 113 D[14]    CN6 pin D14
   15, // 114 D[15]    CN6 pin D15
   17, // 115 D[17]    CN6 pin D17
+
+  21, // 116 EN_WIFI_PWR
+  22, // 117 WIFI_RESET
 };
 
 static inline struct ts7800v2_gpio_priv *to_gpio_ts7800v2(struct gpio_chip *chip)
@@ -237,10 +243,13 @@ static int ts7800v2_gpio_direction_input(struct gpio_chip *chip,
       reg = readl(priv->syscon + 0x28);
       reg &= ~bit;
       writel(reg, priv->syscon + 0x28);
-   } else { /* pc/104 Row D */
+   } else if (offset < 116) { /* pc/104 Row D */
       reg = readl(priv->syscon + 0x2C);
       reg &= ~bit;
       writel(reg, priv->syscon + 0x2C);
+   } else if (offset < 118)  { /* WIFI control bits, nothing to do */
+
+
    }
 
    spin_unlock_irqrestore(&priv->lock, flags);
@@ -292,7 +301,7 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
       reg |= bit;
       writel(reg, priv->syscon + 0x28);
       reg_num = 0x18;
-   } else { /* pc/104 Row D */
+   } else if (offset < 116) { /* pc/104 Row D */
       if (offset >= 104 && offset <= 107) {  /* D[4..7], read-only pins */
           spin_unlock_irqrestore(&priv->lock, flags);
           return -EINVAL;
@@ -301,6 +310,13 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
       reg |= bit;
       writel(reg, priv->syscon + 0x2C);
       reg_num = 0x1C;
+   } else if (offset < 118)  { /* WIFI control bits, nothing to do */
+      priv->direction[offset / 32] &= ~(1 << offset % 32);
+      spin_unlock_irqrestore(&priv->lock, flags);
+      return 0;
+   } else {
+      spin_unlock_irqrestore(&priv->lock, flags);
+      return -EINVAL;
    }
 
    reg = readl(priv->syscon + reg_num);
@@ -343,9 +359,12 @@ static int ts7800v2_gpio_get(struct gpio_chip *chip, unsigned int offset)
       reg_num = 0x14;
    } else if (offset < 101 ) { /* pc/104 Row C */
       reg_num = 0x18;
-   } else { /* pc/104 Row D */
+   } else if (offset < 116) { /* pc/104 Row D */
       reg_num = 0x1C;
-   }
+   } else if (offset < 118)  { /* WIFI control bits */
+      reg_num = 0x0C;
+   } else
+      return -1;
 
    reg = readl(priv->syscon + reg_num);
    return !!(reg & bit);
@@ -390,8 +409,13 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
           return;
        }
       reg_num = 0x18;
-   } else { /* pc/104 Row D */
+   } else if (offset < 116) { /* pc/104 Row D */
       reg_num = 0x1C;
+   }  else if (offset < 118)  { /* WIFI control bits */
+      reg_num = 0x0C;
+   } else {
+      spin_unlock_irqrestore(&priv->lock, flags);
+      return;
    }
 
    bit = 1 << dio_bitpositions[offset];
@@ -445,6 +469,7 @@ static int ts7800v2_gpio_probe(struct platform_device *pdev)
    unsigned long mem_size;
    void __iomem  *membase;
    struct pci_dev *pcidev;
+   unsigned int p=0;
 
     /* The pcie must be enabled before we can access the fpga registers! */
 
@@ -472,14 +497,23 @@ static int ts7800v2_gpio_probe(struct platform_device *pdev)
    if (of_property_read_u32(dev->of_node, "base", &base))
       base = TS7800V2_DIO_BASE;
 
-   res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-   if (!res) {
-      dev_err(&pdev->dev, "no MEM specified\n");
-      return -ENXIO;
-   }
+   /* try to get the FPGA's address by looking at the BAR register */
+   if (pci_read_config_dword(pcidev, PCI_BASE_ADDRESS_2, &p) || p == 0) {
+         /* Failed, so try device-tree */
+         pr_err("Error reading FPGA address from PCI config-space\n");
 
-   mem_size = resource_size(res);
-   membase = devm_ioremap(dev, res->start, resource_size(res));
+          res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+          if (!res) {
+             dev_err(&pdev->dev, "no MEM specified in Device-Tree\n");
+             return -ENXIO;
+          }
+
+         mem_size = resource_size(res);
+         membase = devm_ioremap(dev, res->start, resource_size(res));
+   } else {
+      mem_size = 0x100;
+      membase = devm_ioremap(dev, p, mem_size);
+   }
 
    if (IS_ERR(membase)) {
       pr_err("Could not map resource\n");
