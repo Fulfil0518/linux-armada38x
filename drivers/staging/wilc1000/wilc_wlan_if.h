@@ -31,6 +31,9 @@
 #define	FIRMWARE_1003			   "atmel/wilc1000_wifi_firmware.bin"
 #define	FIRMWARE_WILC3000_WIFI	"atmel/wilc3000_wifi_firmware.bin"
 #define	FIRMWARE_WILC3000_BT		"atmel/wilc3000_bt_firmware.bin"
+/* Use the following when the external 32KHz clock is not available
+#define	FIRMWARE_WILC3000_BT		"atmel/wilc3000_bt_firmware_no_rtc.bin"
+*/
 
 /********************************************
  *
