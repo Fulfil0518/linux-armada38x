@@ -113,6 +113,11 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins>;
 				status = "okay";
+				silabs_wdt: silabs-wdt@54 {
+					compatible = "technologicsystems,ts7800v2-wdt";
+					reg = <0x54>;
+					status = "okay";
+				};
 			};
 
 			mdio@72004 {
