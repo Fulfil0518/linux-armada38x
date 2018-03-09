@@ -54,6 +54,7 @@
 
    chosen {
       stdout-path = "serial0:115200n8";
+      bootargs = "root=/dev/nfs  nfsroot=192.168.1.16:/mnt/storage/Projects/7800-V2 rootwait rw ip=192.168.1.99:192.168.1.16 console=ttyS0,115200";
    };
 
    memory {
@@ -249,13 +250,12 @@
       status = "okay";
    };
 
-   ax88796: ax88796 {
-      compatible = "asix,ax88796";
+   ax88796b: ax88796b {
+      compatible = "asix,ax88796b";
       #address-cells = <0x1>;
       #size-cells = <0x0>;
-      reg = <0xFA000100 32>;  /* There are 32 8-bit registers here */
-      interrupts = <122>, <123>, <124>;
-      status = "okay";
+      reg = <0xFA000000 400>; /* For the TS-ETH2 board on PC-104 */
+      status = "disabled";
    };
 
    ts7800v2_gpio: ts7800v2-gpio {   /* drivers/gpio/gpio-ts7800-v2.c */
@@ -272,9 +272,10 @@
 
    i2c_gpio@0 {
       compatible = "i2c-gpio";
-      gpios = <&ts7800v2_gpio 13 GPIO_ACTIVE_LOW /* sda = CN8 pin 15*/
-       &ts7800v2_gpio 12 GPIO_ACTIVE_LOW /* scl = CN8 pin 14*/
-       >;
+      gpios = <
+         &ts7800v2_gpio 0 GPIO_ACTIVE_LOW /* sda = CN8 pin 1*/
+         &ts7800v2_gpio 1 GPIO_ACTIVE_LOW /* scl = CN8 pin 3*/
+         >;
 
       status = "okay";
       i2c-gpio,sda-open-drain;
@@ -295,6 +296,30 @@
          solomon,prechargep1 = <1>;
          solomon,prechargep2 = <0xF>;
          status = "okay";
+      };
+   };
+
+   spi_gpio@0 {
+      compatible = "spi-gpio";
+      #address-cells = <0x1>;
+      #size-cells = <0>;
+      num-chipselects = <1>;
+
+      cs-gpios  = <&ts7800v2_gpio 4  GPIO_ACTIVE_LOW>; /* CN8 pin  6*/
+      gpio-miso = <&ts7800v2_gpio 8  GPIO_ACTIVE_HIGH>; /* CN8 pin 10*/
+      gpio-mosi = <&ts7800v2_gpio 10  GPIO_ACTIVE_HIGH>; /* CN8 pin 12*/
+      gpio-sck  = <&ts7800v2_gpio 12  GPIO_ACTIVE_HIGH>; /* CN8 pin 14*/
+      status = "okay";
+
+      eeprom: at25@0 {
+            compatible = "atmel,at25";
+            at25,byte-len = <0x8000>;
+            at25,addr-mode = <2>;
+            at25,page-size = <64>;
+
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+            status = "okay";
       };
    };
 
