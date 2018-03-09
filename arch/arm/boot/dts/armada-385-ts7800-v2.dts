@@ -54,7 +54,6 @@
 
    chosen {
       stdout-path = "serial0:115200n8";
-      bootargs = "root=/dev/nfs  nfsroot=192.168.1.16:/mnt/storage/Projects/7800-V2 rootwait rw ip=192.168.1.99:192.168.1.16 console=ttyS0,115200";
    };
 
    memory {
