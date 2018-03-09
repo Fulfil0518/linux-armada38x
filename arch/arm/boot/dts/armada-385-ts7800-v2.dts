@@ -111,6 +111,11 @@
                   status = "okay";
             };
 
+            rtc_m41t00: rtc@68 {
+               compatible = "st,m41t00";
+               reg = <0x68>;
+               status = "okay";
+            };
          };
 
          mdio@72004 {
