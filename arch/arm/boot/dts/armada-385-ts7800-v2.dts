@@ -116,6 +116,12 @@
                reg = <0x68>;
                status = "okay";
             };
+
+            accelerometer_mm8451: accelerometer@0x1c {
+               compatible = "fsl,mma8451";
+               reg = <0x1c>;
+               status = "okay";
+            };
          };
 
          mdio@72004 {
