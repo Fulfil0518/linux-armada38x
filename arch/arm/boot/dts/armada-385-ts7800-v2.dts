@@ -275,6 +275,15 @@
       status = "okay";
    };
 
+   ts7800v2_can: ts7800v2-can { /* drivers/net/can/ts7800v2_can.c */
+      compatible = "technologic,ts7800v2-can";
+      #address-cells = <0x1>;
+      #size-cells = <0>;
+      reg = <0xFC081000 0x100>;     /* syscon register */
+      technologic,can-clock-frequency = <16000000>;
+      status = "okay";
+   };
+
    i2c_gpio@0 {
       compatible = "i2c-gpio";
       gpios = <
