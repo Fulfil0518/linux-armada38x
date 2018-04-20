@@ -34,6 +34,8 @@ static int wilc_spi_read(struct wilc *wilc, u32, u8 *, u32);
 static int wilc_spi_write(struct wilc *wilc, u32, u8 *, u32);
 static int wilc_spi_rx(struct wilc *wilc, u8 *rb, u32 rlen);
 
+static int wilc_spi_read_reg(struct wilc *wilc, u32 addr, u32 *data);
+
 /********************************************
  *
  *      Crc7
@@ -128,6 +130,7 @@ static int wilc_bus_probe(struct spi_device *spi)
    int ret;
    struct wilc *wilc;
    struct device_node *node;
+   u32 chipid;
 
    /* Get GPIO numbers from DT */
    node = of_find_node_by_name(NULL, "wilc_spi");
@@ -147,12 +150,38 @@ static int wilc_bus_probe(struct spi_device *spi)
    if (ret)
       return ret;
 
-   mutex_init(&wilc->hif_cs);
-
    spi_set_drvdata(spi, wilc);
    wilc->dev = &spi->dev;
 
+   if (wilc_spi_read_reg(wilc, 0x3b0000, &chipid)) {
+      if (ISWILC3000(chipid)) {
+         printk("Found WILC3000 chip\n");
+         goto L1;
+      }
+   }
+   else {
+      dev_err(&spi->dev, "Fail cmd read chip id...\n");
+      wilc_netdev_cleanup(spi_get_drvdata(spi));
+      return -EIO;
+   }
+
+   if (wilc_spi_read_reg(wilc, 0x1000, &chipid)) {
+      if (ISWILC1000(chipid)) {
+         printk("Found WILC1000 chip\n");
+      }
+   }
+   else {
+      dev_err(&spi->dev, "Fail cmd read chip id...\n");
+      wilc_netdev_cleanup(spi_get_drvdata(spi));
+      return -EIO;
+   }
+
+L1:
+
+   mutex_init(&wilc->hif_cs);
+
    wilc_bt_init(wilc);
+
 
    dev_info(&spi->dev, "WILC SPI probe success\n");
    return 0;
