@@ -57,6 +57,8 @@ static struct isa16550_uart_device isa16550_uart_devices[NR_UARTS];
 static unsigned int io[NR_UARTS]  = { 0x3f8, 0x2f8, 0x3e8, 0x2e8 };
 static unsigned int irq[NR_UARTS] = { 5, 5, 5, 5 };
 
+static int io_cnt = 0;
+
 void __iomem  *membase;
 
 static int isa16550_probe(struct platform_device *dev);
@@ -137,6 +139,17 @@ static int isa16550_probe(struct platform_device *pdev)
       nr_uarts = NR_UARTS;
    }
 
+   if (io_cnt > 0) {
+      pr_info("Setting-up %d uarts based on command-line\n", io_cnt);
+
+      if (io_cnt >  NR_UARTS) {
+         pr_warn("Too many addresses specified on command-line; setting default of %d\n", NR_UARTS);
+         nr_uarts = NR_UARTS;
+      } else {
+         nr_uarts = io_cnt;
+      }
+   }
+
    membase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 
    if (IS_ERR(membase)) {
@@ -211,7 +224,7 @@ static struct uart_driver isa16550_uart_driver = {
 module_init(ts7800_isa16550_init);
 module_exit(ts7800_isa16550_exit);
 MODULE_PARM_DESC(io, "Set offset for uarts (e.g., io=0x2e8,0x3a8,0x2a8,0x3a0)");
-module_param_array(io, uint, NULL, 0);
+module_param_array(io, uint, &io_cnt, 0);
 MODULE_PARM_DESC(irq, "Set interrupt numbers for uarts (e.g., irq=5,6,5,6)");
 module_param_array(irq, uint, NULL, 0);
 MODULE_LICENSE("GPL");
