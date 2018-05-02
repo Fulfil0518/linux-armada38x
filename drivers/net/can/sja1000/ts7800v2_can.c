@@ -208,6 +208,14 @@ static int ts7800v2_can_probe(struct platform_device *pdev)
    ts7800v2_write_reg(priv, SJA1000_EWL, 96);    /* Error warning limit */
    ts7800v2_write_reg(priv, SJA1000_RXERR, 0);   /* Reset RX error counter to 0 */
    ts7800v2_write_reg(priv, SJA1000_TXERR, 0);   /* Reset TX error counter to 0 */
+   ts7800v2_write_reg(priv, SJA1000_ACCC0, 0);   /* Acceptance code */
+   ts7800v2_write_reg(priv, SJA1000_ACCC1, 0);   /* Acceptance code */
+   ts7800v2_write_reg(priv, SJA1000_ACCC2, 0);   /* Acceptance code */
+   ts7800v2_write_reg(priv, SJA1000_ACCC3, 0);   /* Acceptance code */
+   ts7800v2_write_reg(priv, SJA1000_ACCM0, 0);   /* Acceptance mask */
+   ts7800v2_write_reg(priv, SJA1000_ACCM1, 0);   /* Acceptance mask */
+   ts7800v2_write_reg(priv, SJA1000_ACCM2, 0);   /* Acceptance mask */
+   ts7800v2_write_reg(priv, SJA1000_ACCM3, 0);   /* Acceptance mask */
    ts7800v2_write_reg(priv, SJA1000_MOD, 0);     /* Leave reset mode */
 
    platform_set_drvdata(pdev, ndev);
