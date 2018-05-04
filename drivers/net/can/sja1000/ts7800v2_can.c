@@ -41,6 +41,10 @@ static int irq;
 module_param(irq, int, S_IRUGO);
 MODULE_PARM_DESC(irq, "Interrupt number.  Default: 120");
 
+
+static DEFINE_SPINLOCK(fpga_lock);
+
+
 /**
    There is a 32-bit register in the syscon at offset 0x4c.
 
@@ -71,15 +75,18 @@ MODULE_PARM_DESC(irq, "Interrupt number.  Default: 120");
 
 static u8 ts7800v2_read_reg(const struct sja1000_priv *priv, int reg)
 {
+   unsigned long flags;
    volatile unsigned int *syscon = (unsigned int *)priv->reg_base;
    unsigned int v;
 
-   while(syscon[CAN_CNTL_REG_OFFSET / 4] & CAN_CNTL_START);
+   spin_lock_irqsave(&fpga_lock, flags);
 
-   syscon[CAN_CNTL_REG_OFFSET / 4] = CAN_CNTL_START | reg;
+   while(readl(&syscon[CAN_CNTL_REG_OFFSET / 4]) & CAN_CNTL_START);
+
+   writel(CAN_CNTL_START | reg, &syscon[CAN_CNTL_REG_OFFSET / 4]);
 
    do {
-      v = syscon[CAN_CNTL_REG_OFFSET / 4];
+      v = readl(&syscon[CAN_CNTL_REG_OFFSET / 4]);
    } while(v & CAN_CNTL_START);
 
 #if (DEBUG_ON)
@@ -87,22 +94,29 @@ static u8 ts7800v2_read_reg(const struct sja1000_priv *priv, int reg)
       reg, (v >> 8) & 0xFF, v);
 #endif
 
+   spin_unlock_irqrestore(&fpga_lock, flags);
    return (v >> 8) & 0xFF;
 }
 
 static void ts7800v2_write_reg(const struct sja1000_priv *priv, int reg, u8 val)
 {
+   unsigned long flags;
    volatile unsigned int *syscon = (unsigned int *)priv->reg_base;
+
+   if (reg == SJA1000_MOD)
+      printk("write 0x%02X to SJA1000_MOD\n", val);
 
 #if (DEBUG_ON)
    printk("WRITE REG: 0x%02X to 0x%02X (raw 0x%08X)\n", val, reg,
       CAN_CNTL_START | CAN_CNTL_WRITE | reg | ((u16)val << 8));
 #endif
 
-   while(syscon[CAN_CNTL_REG_OFFSET / 4] & CAN_CNTL_START);
+   spin_lock_irqsave(&fpga_lock, flags);
+   while(readl(&syscon[CAN_CNTL_REG_OFFSET / 4]) & CAN_CNTL_START);
 
-   syscon[CAN_CNTL_REG_OFFSET / 4] =
-      CAN_CNTL_START | CAN_CNTL_WRITE | reg | ((u16)val << 8);
+   writel(CAN_CNTL_START | CAN_CNTL_WRITE | reg | ((u16)val << 8), &syscon[CAN_CNTL_REG_OFFSET / 4]);
+   spin_unlock_irqrestore(&fpga_lock, flags);
+
 }
 
 
@@ -126,7 +140,6 @@ static void ts7800v2_populate_of(struct sja1000_priv *priv, struct device_node *
 
       priv->can.clock.freq = 16000000 / 2;
    }
-
 }
 
 
@@ -167,7 +180,7 @@ static int ts7800v2_can_probe(struct platform_device *pdev)
    }
 
    mem_size = resource_size(res_mem);
-   addr = devm_ioremap(&pdev->dev, res_mem->start, resource_size(res_mem));
+   addr = devm_ioremap_nocache(&pdev->dev, res_mem->start, resource_size(res_mem));
 
    if (IS_ERR(addr)) {
       ret = PTR_ERR(addr);
@@ -178,7 +191,7 @@ static int ts7800v2_can_probe(struct platform_device *pdev)
       irq = DEFAULT_IRQ;
 
    syscon = (unsigned int *)addr;
-   fpga_rev = syscon[0] & 0xFF;
+   fpga_rev = readl(syscon) & 0xFF;
 
    if (fpga_rev < 39) {
       dev_err(&pdev->dev, "FPGA needs to be Rev 39 or later. Found Rev %d\n", fpga_rev);
