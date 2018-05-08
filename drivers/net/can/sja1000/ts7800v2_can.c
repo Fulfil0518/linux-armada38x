@@ -103,9 +103,6 @@ static void ts7800v2_write_reg(const struct sja1000_priv *priv, int reg, u8 val)
    unsigned long flags;
    volatile unsigned int *syscon = (unsigned int *)priv->reg_base;
 
-   if (reg == SJA1000_MOD)
-      printk("write 0x%02X to SJA1000_MOD\n", val);
-
 #if (DEBUG_ON)
    printk("WRITE REG: 0x%02X to 0x%02X (raw 0x%08X)\n", val, reg,
       CAN_CNTL_START | CAN_CNTL_WRITE | reg | ((u16)val << 8));
