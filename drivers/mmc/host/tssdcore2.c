@@ -101,7 +101,7 @@ struct sdcore {
 	void (*os_irqwait)(void *, unsigned int);
 	int (*os_powerok)(void *);
 	int (*os_timeout)(void *);
-	int (*os_reset_timeout)(void *);
+	void (*os_reset_timeout)(void *);
 
 	/* If the SD card last successfully reset is write protected, this
 	 * member will be non-zero.
