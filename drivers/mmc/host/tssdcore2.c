@@ -258,8 +258,10 @@ const static unsigned char destagger[256] = {
 #endif
 static struct sdcore *sdcores[MAX_SDCORES];
 
-static unsigned int crc7(unsigned int, const unsigned int *, unsigned int);
+#ifndef SD_NOMMC
 static int mmcreset2(struct sdcore *);
+#endif
+
 static int sdreset2(struct sdcore *);
 static int version(struct sdcore *);
 static int sdfastinit(struct sdcore *sd);
@@ -397,7 +399,7 @@ static void remember_sdcore(struct sdcore *sd) {
 	}
 }
 
-
+#if 0
 static void forget_sdcore(struct sdcore *sd) {
 	int i, found;
 
@@ -407,7 +409,7 @@ static void forget_sdcore(struct sdcore *sd) {
 		  (i == sizeof(sdcores)/sizeof(sdcores[0]))?NULL:sdcores[i+1];
 	}
 }
-
+#endif
 
 static int activate(struct sdcore *sd) {
 	int i;
