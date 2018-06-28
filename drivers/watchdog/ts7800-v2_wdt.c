@@ -35,6 +35,11 @@
 
 static struct i2c_client *i2c_client;
 static unsigned int wdt_active;
+
+static int timeout = 360;
+module_param(timeout, int, 0644);
+MODULE_PARM_DESC(timeout, "Default timeout for the watchdog, used for initial boot");
+
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
@@ -174,7 +179,7 @@ static int ts7800v2_wdt_probe(struct i2c_client *client,
 	wdt->info	= &ts7800v2_wdt_info;
 	wdt->ops		= &ts7800v2_wdt_ops;
 	wdt->status		= 0;
-	wdt->timeout		= 60;
+	wdt->timeout		= timeout;
 	wdt->min_timeout	= 1;
 	wdt->max_timeout	= 1000;
 	wdt->parent = &client->dev;
