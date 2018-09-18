@@ -36,6 +36,14 @@ config HW_RANDOM_TIMERIOMEM
 
 	  If unsure, say Y.
 
+
+config HW_RANDOM_TS7800V2
+	tristate "TS-7800-V2 FPGA based RNG"
+	depends on HAS_IOMEM
+	---help---
+	  This driver provides kernel support for the FPGA based RNG which
+	  returns a constant random 32-bit value based on metastability.
+
 config HW_RANDOM_INTEL
 	tristate "Intel HW Random Number Generator support"
 	depends on (X86 || IA64) && PCI
