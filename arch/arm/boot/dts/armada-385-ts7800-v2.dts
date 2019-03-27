@@ -85,18 +85,6 @@
 				bm,pool-short = <3>;
 			};
 
-
-			/* sgmii port to eth switch */
-			ethernet@34000 {
-				status = "okay";
-				phy = <&phy2>;
-				phy-mode = "sgmii";
-				buffer-manager = <&bm>;
-				bm,pool-long = <2>;
-				bm,pool-short = <3>;
-			};
-
-
 			i2c0: i2c@11000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins>;
