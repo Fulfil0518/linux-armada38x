@@ -529,7 +529,8 @@ static int ts7800v2_gpio_probe(struct platform_device *pdev)
    memset(priv->direction, 0xFF, sizeof(priv->direction));
    memset(priv->ovalue, 0, sizeof(priv->ovalue));
    /* Set all the DIO/LCD outputs high (they are open-drain) */
-   reg = readl(priv->syscon + 8) | 0x3fffffff;
+   /* ... Except lcd_04.  That one drives 3.3V. Set it low.  */
+   reg = readl(priv->syscon + 8) | 0x3ff7ffff;
    writel(reg, priv->syscon + 8);
 
 
