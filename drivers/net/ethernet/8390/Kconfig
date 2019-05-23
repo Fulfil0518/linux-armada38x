@@ -38,6 +38,16 @@ config AX88796
 	  AX88796 driver, using platform bus to provide
 	  chip detection and resources
 
+config AX88796B
+	tristate "ASIX AX88796B NE2000 Clone support"
+	depends on (ARM || MIPS || SUPERH)
+	select CRC32
+	select PHYLIB
+	select MDIO_BITBANG
+	---help---
+	  AX88796b driver, using PC104 to provide chip detection
+	  and resources for the TS-7800-V2
+
 config AX88796_93CX6
 	bool "ASIX AX88796 external 93CX6 eeprom support"
 	depends on AX88796
