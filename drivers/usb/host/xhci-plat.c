@@ -234,6 +234,8 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct clk *clk = xhci->clk;
 
+	xhci->xhc_state |= XHCI_STATE_REMOVING;
+
 	if (of_device_is_compatible(dev->dev.of_node,
 				    "marvell,armada-3700-xhci-otg")) {
 		otg_set_host(hcd->usb_phy->otg, NULL);
