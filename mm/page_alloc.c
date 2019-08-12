@@ -4255,9 +4255,6 @@ static int __build_all_zonelists(void *data)
 		if (cpu_online(cpu))
 			set_cpu_numa_mem(cpu, local_memory_node(cpu_to_node(cpu)));
 #endif
-		if (alloc_harder &&
-			!list_empty(&area->free_list[MIGRATE_HIGHATOMIC]))
-			return true;
 	}
 
 	return 0;
