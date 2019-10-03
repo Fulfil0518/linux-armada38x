@@ -1015,7 +1015,7 @@ static int rtnl_phys_port_name_fill(struct sk_buff *skb, struct net_device *dev)
 		return err;
 	}
 
-	if (nla_put_string(skb, IFLA_PHYS_PORT_NAME, name))
+	if (nla_put(skb, IFLA_PHYS_PORT_NAME, strlen(name), name))
 		return -EMSGSIZE;
 
 	return 0;
@@ -1455,13 +1455,13 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 					       cb->nlh->nlmsg_seq, 0,
 					       NLM_F_MULTI,
 					       ext_filter_mask);
+			/* If we ran out of room on the first message,
+			 * we're in trouble
+			 */
+			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
 
-			if (err < 0) {
-				if (likely(skb->len))
-					goto out;
-
-				goto out_err;
-			}
+			if (err < 0)
+				goto out;
 
 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
 cont:
@@ -1469,12 +1469,10 @@ cont:
 		}
 	}
 out:
-	err = skb->len;
-out_err:
 	cb->args[1] = idx;
 	cb->args[0] = h;
 
-	return err;
+	return skb->len;
 }
 
 int rtnl_nla_parse_ifla(struct nlattr **tb, const struct nlattr *head, int len)
@@ -3126,12 +3124,8 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
 				err = br_dev->netdev_ops->ndo_bridge_getlink(
 						skb, portid, seq, dev,
 						filter_mask, NLM_F_MULTI);
-				if (err < 0 && err != -EOPNOTSUPP) {
-					if (likely(skb->len))
-						break;
-
-					goto out_err;
-				}
+				if (err < 0 && err != -EOPNOTSUPP)
+					break;
 			}
 			idx++;
 		}
@@ -3142,22 +3136,16 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
 							      seq, dev,
 							      filter_mask,
 							      NLM_F_MULTI);
-				if (err < 0 && err != -EOPNOTSUPP) {
-					if (likely(skb->len))
-						break;
-
-					goto out_err;
-				}
+				if (err < 0 && err != -EOPNOTSUPP)
+					break;
 			}
 			idx++;
 		}
 	}
-	err = skb->len;
-out_err:
 	rcu_read_unlock();
 	cb->args[0] = idx;
 
-	return err;
+	return skb->len;
 }
 
 static inline size_t bridge_nlmsg_size(void)

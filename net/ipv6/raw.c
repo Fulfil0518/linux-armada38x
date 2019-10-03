@@ -630,8 +630,6 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
 		return -EMSGSIZE;
 	}
-	if (length < sizeof(struct ipv6hdr))
-		return -EINVAL;
 	if (flags&MSG_PROBE)
 		goto out;
 
@@ -1146,7 +1144,8 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
 		spin_lock_bh(&sk->sk_receive_queue.lock);
 		skb = skb_peek(&sk->sk_receive_queue);
 		if (skb)
-			amount = skb->len;
+			amount = skb_tail_pointer(skb) -
+				skb_transport_header(skb);
 		spin_unlock_bh(&sk->sk_receive_queue.lock);
 		return put_user(amount, (int __user *)arg);
 	}
