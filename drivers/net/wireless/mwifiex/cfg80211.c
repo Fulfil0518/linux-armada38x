@@ -1150,6 +1150,12 @@ mwifiex_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 			priv->adapter->curr_iface_comb.p2p_intf--;
 			priv->adapter->curr_iface_comb.sta_intf++;
 			dev->ieee80211_ptr->iftype = type;
+			if (mwifiex_deinit_priv_params(priv))
+				return -1;
+			if (mwifiex_init_new_priv_params(priv, dev, type))
+				return -1;
+			if (mwifiex_sta_init_cmd(priv, false, false))
+				return -1;
 			break;
 		case NL80211_IFTYPE_ADHOC:
 			if (mwifiex_cfg80211_deinit_p2p(priv))
@@ -2839,8 +2845,10 @@ int mwifiex_del_virtual_intf(struct wiphy *wiphy, struct wireless_dev *wdev)
 
 	mwifiex_stop_net_dev_queue(priv->netdev, adapter);
 
-	skb_queue_walk_safe(&priv->bypass_txq, skb, tmp)
+	skb_queue_walk_safe(&priv->bypass_txq, skb, tmp) {
+		skb_unlink(skb, &priv->bypass_txq);
 		mwifiex_write_data_complete(priv->adapter, skb, 0, -1);
+	}
 
 	if (netif_carrier_ok(priv->netdev))
 		netif_carrier_off(priv->netdev);
@@ -3740,7 +3748,7 @@ int mwifiex_init_channel_scan_gap(struct mwifiex_adapter *adapter)
 	if (adapter->config_bands & BAND_A)
 		n_channels_a = mwifiex_band_5ghz.n_channels;
 
-	adapter->num_in_chan_stats = max_t(u32, n_channels_bg, n_channels_a);
+	adapter->num_in_chan_stats = n_channels_bg + n_channels_a;
 	adapter->chan_stats = vmalloc(sizeof(*adapter->chan_stats) *
 				      adapter->num_in_chan_stats);
 

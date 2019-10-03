@@ -50,20 +50,24 @@ extern int ptrace_request(struct task_struct *child, long request,
 			  unsigned long addr, unsigned long data);
 extern void ptrace_notify(int exit_code);
 extern void __ptrace_link(struct task_struct *child,
-			  struct task_struct *new_parent);
+			  struct task_struct *new_parent,
+			  const struct cred *ptracer_cred);
 extern void __ptrace_unlink(struct task_struct *child);
 extern void exit_ptrace(struct task_struct *tracer, struct list_head *dead);
 #define PTRACE_MODE_READ	0x01
 #define PTRACE_MODE_ATTACH	0x02
 #define PTRACE_MODE_NOAUDIT	0x04
-#define PTRACE_MODE_FSCREDS 0x08
-#define PTRACE_MODE_REALCREDS 0x10
+#define PTRACE_MODE_FSCREDS	0x08
+#define PTRACE_MODE_REALCREDS	0x10
+#define PTRACE_MODE_SCHED	0x20
+#define PTRACE_MODE_IBPB	0x40
 
 /* shorthands for READ/ATTACH and FSCREDS/REALCREDS combinations */
 #define PTRACE_MODE_READ_FSCREDS (PTRACE_MODE_READ | PTRACE_MODE_FSCREDS)
 #define PTRACE_MODE_READ_REALCREDS (PTRACE_MODE_READ | PTRACE_MODE_REALCREDS)
 #define PTRACE_MODE_ATTACH_FSCREDS (PTRACE_MODE_ATTACH | PTRACE_MODE_FSCREDS)
 #define PTRACE_MODE_ATTACH_REALCREDS (PTRACE_MODE_ATTACH | PTRACE_MODE_REALCREDS)
+#define PTRACE_MODE_SPEC_IBPB (PTRACE_MODE_ATTACH_REALCREDS | PTRACE_MODE_IBPB)
 
 /**
  * ptrace_may_access - check whether the caller is permitted to access
@@ -80,6 +84,20 @@ extern void exit_ptrace(struct task_struct *tracer, struct list_head *dead);
  * process_vm_writev or ptrace (and should use the real credentials).
  */
 extern bool ptrace_may_access(struct task_struct *task, unsigned int mode);
+
+/**
+ * ptrace_may_access - check whether the caller is permitted to access
+ * a target task.
+ * @task: target task
+ * @mode: selects type of access and caller credentials
+ *
+ * Returns true on success, false on denial.
+ *
+ * Similar to ptrace_may_access(). Only to be called from context switch
+ * code. Does not call into audit and the regular LSM hooks due to locking
+ * constraints.
+ */
+extern bool ptrace_may_access_sched(struct task_struct *task, unsigned int mode);
 
 static inline int ptrace_reparented(struct task_struct *child)
 {
@@ -202,7 +220,7 @@ static inline void ptrace_init_task(struct task_struct *child, bool ptrace)
 
 	if (unlikely(ptrace) && current->ptrace) {
 		child->ptrace = current->ptrace;
-		__ptrace_link(child, current->parent);
+		__ptrace_link(child, current->parent, current->ptracer_cred);
 
 		if (child->ptrace & PT_SEIZED)
 			task_set_jobctl_pending(child, JOBCTL_TRAP_STOP);
@@ -211,6 +229,8 @@ static inline void ptrace_init_task(struct task_struct *child, bool ptrace)
 
 		set_tsk_thread_flag(child, TIF_SIGPENDING);
 	}
+	else
+		child->ptracer_cred = NULL;
 }
 
 /**

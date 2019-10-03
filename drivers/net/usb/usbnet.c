@@ -499,6 +499,7 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 
 	if (netif_running (dev->net) &&
 	    netif_device_present (dev->net) &&
+	    test_bit(EVENT_DEV_OPEN, &dev->flags) &&
 	    !test_bit (EVENT_RX_HALT, &dev->flags) &&
 	    !test_bit (EVENT_DEV_ASLEEP, &dev->flags)) {
 		switch (retval = usb_submit_urb (urb, GFP_ATOMIC)) {
@@ -1385,6 +1386,11 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 		spin_unlock_irqrestore(&dev->txq.lock, flags);
 		goto drop;
 	}
+	if (netif_queue_stopped(net)) {
+		usb_autopm_put_interface_async(dev->intf);
+		spin_unlock_irqrestore(&dev->txq.lock, flags);
+		goto drop;
+	}
 
 #ifdef CONFIG_PM
 	/* if this triggers the device is still a sleep */
@@ -1989,6 +1995,10 @@ int cdc_parse_cdc_header(struct usb_cdc_parsed_header *hdr,
 			dev_err(&intf->dev, "skipping garbage byte\n");
 			elength = 1;
 			goto next_desc;
+		}
+		if ((buflen < elength) || (elength < 3)) {
+			dev_err(&intf->dev, "invalid descriptor buffer length\n");
+			break;
 		}
 		if (buffer[1] != USB_DT_CS_INTERFACE) {
 			dev_err(&intf->dev, "skipping garbage\n");

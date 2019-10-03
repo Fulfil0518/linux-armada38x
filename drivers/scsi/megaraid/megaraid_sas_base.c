@@ -1824,9 +1824,12 @@ static void megasas_complete_outstanding_ioctls(struct megasas_instance *instanc
 			if (cmd_fusion->sync_cmd_idx != (u32)ULONG_MAX) {
 				cmd_mfi = instance->cmd_list[cmd_fusion->sync_cmd_idx];
 				if (cmd_mfi->sync_cmd &&
-					cmd_mfi->frame->hdr.cmd != MFI_CMD_ABORT)
+				    (cmd_mfi->frame->hdr.cmd != MFI_CMD_ABORT)) {
+					cmd_mfi->frame->hdr.cmd_status =
+							MFI_STAT_WRONG_STATE;
 					megasas_complete_cmd(instance,
 							     cmd_mfi, DID_OK);
+				}
 			}
 		}
 	} else {
@@ -3844,6 +3847,7 @@ int megasas_alloc_cmds(struct megasas_instance *instance)
 	if (megasas_create_frame_pool(instance)) {
 		dev_printk(KERN_DEBUG, &instance->pdev->dev, "Error creating frame DMA pool\n");
 		megasas_free_cmds(instance);
+		return -ENOMEM;
 	}
 
 	return 0;
@@ -5093,6 +5097,14 @@ megasas_register_aen(struct megasas_instance *instance, u32 seq_num,
 
 		prev_aen.word =
 			le32_to_cpu(instance->aen_cmd->frame->dcmd.mbox.w[1]);
+
+		if ((curr_aen.members.class < MFI_EVT_CLASS_DEBUG) ||
+		    (curr_aen.members.class > MFI_EVT_CLASS_DEAD)) {
+			dev_info(&instance->pdev->dev,
+				 "%s %d out of range class %d send by application\n",
+				 __func__, __LINE__, curr_aen.members.class);
+			return 0;
+		}
 
 		/*
 		 * A class whose enum value is smaller is inclusive of all
@@ -6498,6 +6510,9 @@ static int megasas_mgmt_compat_ioctl_fw(struct file *file, unsigned long arg)
 		get_user(local_sense_len, &ioc->sense_len) ||
 		get_user(user_sense_off, &cioc->sense_off))
 		return -EFAULT;
+
+	if (local_sense_off != user_sense_off)
+		return -EINVAL;
 
 	if (local_sense_len) {
 		void __user **sense_ioc_ptr =

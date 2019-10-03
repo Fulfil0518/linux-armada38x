@@ -1098,8 +1098,6 @@ int mwifiex_set_encode(struct mwifiex_private *priv, struct key_params *kp,
 			encrypt_key.is_rx_seq_valid = true;
 		}
 	} else {
-		if (GET_BSS_ROLE(priv) == MWIFIEX_BSS_ROLE_UAP)
-			return 0;
 		encrypt_key.key_disable = true;
 		if (mac_addr)
 			memcpy(encrypt_key.mac_addr, mac_addr, ETH_ALEN);
@@ -1307,7 +1305,7 @@ mwifiex_set_gen_ie_helper(struct mwifiex_private *priv, u8 *ie_data_ptr,
 	pvendor_ie = (struct ieee_types_vendor_header *) ie_data_ptr;
 	/* Test to see if it is a WPA IE, if not, then it is a gen IE */
 	if (((pvendor_ie->element_id == WLAN_EID_VENDOR_SPECIFIC) &&
-	     (!memcmp(pvendor_ie->oui, wpa_oui, sizeof(wpa_oui)))) ||
+	     (!memcmp(&pvendor_ie->oui, wpa_oui, sizeof(wpa_oui)))) ||
 	    (pvendor_ie->element_id == WLAN_EID_RSN)) {
 
 		/* IE is a WPA/WPA2 IE so call set_wpa function */
@@ -1332,7 +1330,7 @@ mwifiex_set_gen_ie_helper(struct mwifiex_private *priv, u8 *ie_data_ptr,
 		 */
 		pvendor_ie = (struct ieee_types_vendor_header *) ie_data_ptr;
 		if ((pvendor_ie->element_id == WLAN_EID_VENDOR_SPECIFIC) &&
-		    (!memcmp(pvendor_ie->oui, wps_oui, sizeof(wps_oui)))) {
+		    (!memcmp(&pvendor_ie->oui, wps_oui, sizeof(wps_oui)))) {
 			priv->wps.session_enable = true;
 			mwifiex_dbg(priv->adapter, INFO,
 				    "info: WPS Session Enabled.\n");

@@ -753,7 +753,7 @@ static int snd_ni_control_init_val(struct usb_mixer_interface *mixer,
 		return err;
 	}
 
-	kctl->private_value |= (value << 24);
+	kctl->private_value |= ((unsigned int)value << 24);
 	return 0;
 }
 
@@ -914,7 +914,7 @@ static int snd_ftu_eff_switch_init(struct usb_mixer_interface *mixer,
 	if (err < 0)
 		return err;
 
-	kctl->private_value |= value[0] << 24;
+	kctl->private_value |= (unsigned int)value[0] << 24;
 	return 0;
 }
 
@@ -1872,6 +1872,12 @@ void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 	case USB_ID(0x21b4, 0x0081): /* AudioQuest DragonFly */
 		if (unitid == 7 && cval->control == UAC_FU_VOLUME)
 			snd_dragonfly_quirk_db_scale(mixer, cval, kctl);
+		break;
+	/* lowest playback value is muted on C-Media devices */
+	case USB_ID(0x0d8c, 0x000c):
+	case USB_ID(0x0d8c, 0x0014):
+		if (strstr(kctl->id.name, "Playback"))
+			cval->min_mute = 1;
 		break;
 	}
 }

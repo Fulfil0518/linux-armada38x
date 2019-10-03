@@ -270,6 +270,7 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 		ret = unregister_gadget(gi);
 		if (ret)
 			goto err;
+		kfree(name);
 	} else {
 		if (gi->udc_name) {
 			ret = -EBUSY;
@@ -1495,7 +1496,9 @@ void unregister_gadget_item(struct config_item *item)
 {
 	struct gadget_info *gi = to_gadget_info(item);
 
+	mutex_lock(&gi->lock);
 	unregister_gadget(gi);
+	mutex_unlock(&gi->lock);
 }
 EXPORT_SYMBOL_GPL(unregister_gadget_item);
 

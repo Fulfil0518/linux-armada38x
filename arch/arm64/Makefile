@@ -10,7 +10,7 @@
 #
 # Copyright (C) 1995-2001 by Russell King
 
-LDFLAGS_vmlinux	:=-p --no-undefined -X
+LDFLAGS_vmlinux	:=--no-undefined -X
 CPPFLAGS_vmlinux.lds = -DTEXT_OFFSET=$(TEXT_OFFSET)
 OBJCOPYFLAGS	:=-O binary -R .note -R .note.gnu.build-id -R .comment -S
 GZFLAGS		:=-9
@@ -58,6 +58,10 @@ TEXT_OFFSET := 0x00180000
 else
 TEXT_OFFSET := 0x00080000
 endif
+endif
+
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS += $(call cc-disable-warning, asm-operand-widths)
 endif
 
 # KASAN_SHADOW_OFFSET = VA_START + (1 << (VA_BITS - 3)) - (1 << 61)

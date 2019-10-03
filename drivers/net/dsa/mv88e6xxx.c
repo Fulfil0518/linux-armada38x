@@ -709,7 +709,7 @@ static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_priv_state *ps,
 		if (s->sizeof_stat == 8)
 			_mv88e6xxx_stats_read(ps, s->reg + 1, &high);
 	}
-	value = (((u64)high) << 16) | low;
+	value = (((u64)high) << 32) | low;
 	return value;
 }
 
