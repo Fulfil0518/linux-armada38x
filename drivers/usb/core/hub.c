@@ -1318,13 +1318,7 @@ static int hub_configure(struct usb_hub *hub,
 	if (ret < 0) {
 		message = "can't read hub descriptor";
 		goto fail;
-	}
-
-	maxchild = USB_MAXCHILDREN;
-	if (hub_is_superspeed(hdev))
-		maxchild = min_t(unsigned, maxchild, USB_SS_MAXPORTS);
-
-	if (hub->descriptor->bNbrPorts > maxchild) {
+	} else if (hub->descriptor->bNbrPorts > USB_MAXCHILDREN) {
 		message = "hub has too many ports!";
 		ret = -ENODEV;
 		goto fail;
