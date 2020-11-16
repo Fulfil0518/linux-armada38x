@@ -566,6 +566,11 @@ static int wilc_start_firmware(struct net_device *dev)
 		PRINT_ER(dev, "Failed to start Firmware\n");
 		return ret;
 	}
+
+	if (init_irq(dev)) {
+		return -EIO;
+	}
+
 	PRINT_INFO(vif->ndev, INIT_DBG, "Waiting for FW to get ready ...\n");
 
 	if (!wait_for_completion_timeout(&wilc->sync_event,
@@ -915,11 +920,6 @@ static int wilc_wlan_initialize(struct net_device *dev, struct wilc_vif *vif)
 			goto fail_wilc_wlan;
 		}
 
-		if (init_irq(dev)) {
-			ret = -EIO;
-			goto fail_threads;
-		}
-
 		if (wl->io_type == WILC_HIF_SDIO &&
 		    wl->hif_func->enable_interrupt(wl)) {
 			PRINT_ER(dev, "couldn't initialize IRQ\n");
@@ -977,8 +977,6 @@ fail_irq_enable:
 			wl->hif_func->disable_interrupt(wl);
 fail_irq_init:
 		deinit_irq(dev);
-
-fail_threads:
 		wlan_deinitialize_threads(dev);
 fail_wilc_wlan:
 		wilc_wlan_cleanup(dev);
