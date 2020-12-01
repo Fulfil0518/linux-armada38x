@@ -222,6 +222,7 @@ static int ts7800v2_gpio_direction_input(struct gpio_chip *chip,
 
    spin_lock_irqsave(&priv->lock, flags);
 
+
    priv->direction[offset / 32] |= (1 << offset % 32);
    bit = 1 << dio_bitpositions[offset];
 
@@ -245,6 +246,7 @@ static int ts7800v2_gpio_direction_input(struct gpio_chip *chip,
       writel(reg, priv->syscon + 0x28);
    } else if (offset < 116) { /* pc/104 Row D */
       reg = readl(priv->syscon + 0x2C);
+
       reg &= ~bit;
       writel(reg, priv->syscon + 0x2C);
    } else if (offset < 118)  { /* WIFI control bits, nothing to do */
@@ -277,6 +279,7 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
 
    spin_lock_irqsave(&priv->lock, flags);
 
+   priv->direction[offset / 32] &= ~(1 << offset % 32);
    bit = 1 << dio_bitpositions[offset];
 
    if (offset < 26) {   /* DIO or LCD header,  */
@@ -311,9 +314,7 @@ static int ts7800v2_gpio_direction_output(struct gpio_chip *chip,
       writel(reg, priv->syscon + 0x2C);
       reg_num = 0x1C;
    } else if (offset < 118)  { /* WIFI control bits, nothing to do */
-      priv->direction[offset / 32] &= ~(1 << offset % 32);
-      spin_unlock_irqrestore(&priv->lock, flags);
-      return 0;
+      reg_num = 0x0C;
    } else {
       spin_unlock_irqrestore(&priv->lock, flags);
       return -EINVAL;
