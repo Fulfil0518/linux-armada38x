@@ -18,6 +18,7 @@
 
 #include <linux/types.h>
 #include <linux/if_ether.h>
+#include <linux/etherdevice.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 
