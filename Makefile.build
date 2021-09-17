@@ -1,0 +1,5 @@
+# Builds the kernel using a Docker image
+.PHONY: build
+build:
+	docker build -t fulfil/kernel-builder:latest .
+	docker run -it --rm -v $(PWD):/usr/src fulfil/kernel-builder:latest
