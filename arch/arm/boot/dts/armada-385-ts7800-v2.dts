@@ -352,7 +352,7 @@
 	wilc_spi@2 {   /* WILC3000 module, SPI_0_WIFI_CS2#, MPP[27] = native cs[3]*/
 		compatible = "microchip,wilc1000","microchip,wilc3000";
 		reg = <3>;
-		spi-max-frequency = <48000000>;
+		spi-max-frequency = <20000000>;
 		reset-gpios = <&ts7800v2_gpio 117 GPIO_ACTIVE_HIGH>;     /* WIFI_RESET#  */
 		chip_en-gpios = <&ts7800v2_gpio 116 GPIO_ACTIVE_HIGH>;   /* EN_WIFI_PWR */
 		interrupt-parent = <&gpio0>;
