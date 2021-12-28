@@ -67,7 +67,6 @@ Module.symvers
 #
 !.gitignore
 !.mailmap
-!.config
 
 #
 # GIT Submodules

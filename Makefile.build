@@ -7,16 +7,20 @@ MOD_SC18IM700_DIR = /tmp/sc18im700-mod
 
 # Default target is to compile and tar
 .PHONY: default
-default: kernel modules dist
+default: kernel modules target
 
 # Ensure the sc18im700 source exists
 $(MOD_SC18IM700_DIR)/sc18im700.c:
 	@echo "Downloading source for sc18im700 kernel module..."
 	git clone https://github.com/uber-foo/sc18im700-mod.git /tmp/sc18im700-mod
 
+# Do the config
+.config:
+	$(MAKE) ts7800_v2_defconfig
+
 # Builds the kernel
 .PHONY: kernel
-kernel:
+kernel: .config
 	$(MAKE) -j$(THREADS)
 
 # Builds kernel modules
@@ -26,8 +30,7 @@ modules: /tmp/sc18im700-mod/sc18im700.c
 	$(MAKE) -j$(THREADS) M=$(MOD_SC18IM700_DIR) modules
 
 # Creates a tar
-.PHONY: dist
-dist:
+target:
 	mkdir -p target/boot
 	INSTALL_MOD_PATH="target/" $(MAKE) modules_install
 	INSTALL_MOD_PATH="target/" $(MAKE) M=$(MOD_SC18IM700_DIR) modules_install
@@ -36,6 +39,11 @@ dist:
 	@$(eval KERNEL_VERSION = $(shell cat include/config/kernel.release))
 	cd target && \
 	tar --owner=0 --group=0 -cJf ../linux-$(KERNEL_VERSION).tar.xz .
+
+# Cleans old build
+.PHONY: clean
+clean:
+	rm -rf target
 
 # Debug variables
 .PHONY: debug
