@@ -43,7 +43,9 @@ target:
 # Cleans old build
 .PHONY: clean
 clean:
+	$(MAKE) clean
 	rm -rf target
+	rm -rf linux-*.tar.xz
 
 # Debug variables
 .PHONY: debug
