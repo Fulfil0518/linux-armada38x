@@ -4,6 +4,7 @@ THREADS := $(shell nproc)
 
 # Extra kernel module configuration
 MOD_SC18IM700_DIR = /tmp/sc18im700-mod
+MOD_RT8812AU_DIR = /tmp/rt8812au-mod
 
 # Default target is to compile and tar
 .PHONY: default
@@ -13,6 +14,11 @@ default: kernel modules target
 $(MOD_SC18IM700_DIR)/sc18im700.c:
 	@echo "Downloading source for sc18im700 kernel module..."
 	git clone https://github.com/uber-foo/sc18im700-mod.git /tmp/sc18im700-mod
+
+# Ensure the 8812au source exists
+$(MOD_RT8812AU_DIR)/core/rtw_io.c:
+	@echo "Downloading source for rt8812au kernel module..."
+	git clone https://github.com/morrownr/8812au-20210629.git $(MOD_RT8812AU_DIR)
 
 # Do the config
 .config:
@@ -25,15 +31,17 @@ kernel: .config
 
 # Builds kernel modules
 .PHONY: modules
-modules: /tmp/sc18im700-mod/sc18im700.c
+modules: $(MOD_SC18IM700_DIR)/sc18im700.c $(MOD_RT8812AU_DIR)/core/rtw_io.c
 	$(MAKE) -j$(THREADS) modules
 	$(MAKE) -j$(THREADS) M=$(MOD_SC18IM700_DIR) modules
+	$(MAKE) -j$(THREADS) -C $(MOD_RT8812AU_DIR) KSRC=$(PWD)
 
 # Creates a tar
 target:
 	mkdir -p target/boot
 	INSTALL_MOD_PATH="target/" $(MAKE) modules_install
 	INSTALL_MOD_PATH="target/" $(MAKE) M=$(MOD_SC18IM700_DIR) modules_install
+	INSTALL_MOD_PATH="target/" $(MAKE) M=$(MOD_RT8812AU_DIR) modules_install
 	cp arch/arm/boot/zImage  target/boot/zImage
 	cp arch/arm/boot/dts/armada-385-ts*.dtb target/boot/
 	@$(eval KERNEL_VERSION = $(shell cat include/config/kernel.release))
