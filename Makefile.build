@@ -18,7 +18,10 @@ $(MOD_SC18IM700_DIR)/sc18im700.c:
 # Ensure the 8812au source exists
 $(MOD_RT8812AU_DIR)/core/rtw_io.c:
 	@echo "Downloading source for rt8812au kernel module..."
-	git clone https://github.com/morrownr/8812au-20210629.git $(MOD_RT8812AU_DIR)
+	@# This repository supports newer 8812au devices
+	@#git clone https://github.com/morrownr/8812au-20210629.git $(MOD_RT8812AU_DIR)
+	@# This repository supports older devices like the Realtek 0bda:0811
+	git clone https://github.com/gnab/rtl8812au.git $(MOD_RT8812AU_DIR)
 
 # Do the config
 .config:
